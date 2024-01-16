@@ -1,93 +1,148 @@
 <br />
 <div align="center">
-  <h1 align="center"><img src="https://i.ibb.co/N1kYZy5/icon.png" width="30" height="30"> align-transformers</h1>
-  <a href="https://arxiv.org/abs/2305.08809"><strong>Read Our Recent Paper »</strong></a>
+  <h1 align="center"><img src="https://i.ibb.co/BNkhQH3/pyvene-logo.png"></h1>
+  <a href="https://nlp.stanford.edu/~wuzhengx/"><strong>Library Paper and Doc Are Forthcoming »</strong></a>
 </div>
 
-### Tutorials
-[<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/align-transformers/blob/main/tutorials/basic_tutorials/Basic_Intervention.ipynb) [**Transformers Intervention 101**]    
-[<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/align-transformers/blob/main/tutorials/basic_tutorials/Add_New_Model_Type.ipynb) [**Add New Models and Intervention Types**]    
-[<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/align-transformers/blob/main/tutorials/advance_tutorials/Intervened_Model_Generation.ipynb) [**Intervened Model Generation**]    
-[<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/frankaging/align-transformers/blob/main/tutorials/advance_tutorials/DAS_with_IOI.ipynb) [**IOI Circuit with DAS**]    
+<a href="https://pypi.org/project/pyvene/"><img src="https://img.shields.io/pypi/v/pyvene?color=red"></img></a>
 
+# **Use _Activation Intervention_ to Interpret _Causal Mechanism_ of Model**
+**pyvene** supports customizable interventions on different neural architectures (e.g., RNN or Transformers). It supports complex intervention schemas (e.g., parallel or serialized interventions) and a wide range of intervention modes (e.g., static or trained interventions) at scale to gain interpretability insights.
 
-# <img src="https://i.ibb.co/N1kYZy5/icon.png" width="30" height="30"> **Intervene on NN's Activations to Trace Causal Mechanism**
-We have released a **new** generic library for studying model internals, which encapsulates **interchange intervention**[^ii], **path patching**[^pp], or **causal scrubbing**[^cs]. These methods were introduced recently to find or to help us find causal alignments with the internals of neural models. This library is designed as a playground for inventing new interventions, whether they're trainable or not, to uncover the causal mechanisms of neural models. Additionally, the library emphasizes scaling these methods to LLMs with billions of parameters. **This library focuses on Transformer-based models yet is made to be compatible with other architectures (e.g., see our tutorials about [MLP](https://github.com/frankaging/align-transformers/blob/main/tutorials/basic_tutorials/NonTransformer_MLP_Intervention.ipynb) and [GRU](https://github.com/frankaging/align-transformers/blob/main/tutorials/basic_tutorials/NonTransformer_GRU_Intervention.ipynb)).**
+**Getting Started:** [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/stanfordnlp/pyvene/blob/main/tutorials/basic_tutorials/Basic_Intervention.ipynb) [**_pyvene_ 101**]  
 
-## Interventions v.s. Alignments with Model Internals
-In this section, we discuss topics from interventions to alignments with model internals.
-
-### Interventions
-Intervention is the basic unit of this library. It means manipulating the model's activations, without any assumption of how the model behavior will change. We can zero-out a set of neurons, or swap activations between examples (i.e., interchange interventions). Here, we show how we can intervene in model internals with this library.
-
-#### Loading models from HuggingFace
-```py
-from models.utils import create_gpt2
-
-config, tokenizer, gpt = create_gpt2()
+## Installation
+```bash
+pip install pyvene
 ```
 
-#### Create a simple alignable config
-```py
-alignable_config = AlignableConfig(
-    alignable_model_type="gpt2",
-    alignable_representations=[
-        AlignableRepresentationConfig(
-            0,            # intervening layer 0
-            "mlp_output", # intervening mlp output
-            "pos",        # intervening based on positional indices of tokens
-            1             # maximally intervening one token
-        ),
-    ],
+## _Wrap_ , _Intervene_ and _Share_
+You can intervene with supported models as,
+```python
+import pyvene
+from pyvene import IntervenableRepresentationConfig, IntervenableConfig, IntervenableModel
+
+# provided wrapper for huggingface gpt2 model
+_, tokenizer, gpt2 = pyvene.create_gpt2()
+
+# turn gpt2 into intervenable_gpt2
+intervenable_gpt2 = IntervenableModel(
+    intervenable_config = IntervenableConfig(
+        intervenable_representations=[
+            IntervenableRepresentationConfig(
+                0,            # intervening layer 0
+                "mlp_output", # intervening mlp output
+                "pos",        # intervening based on positional indices of tokens
+                1             # maximally intervening one token
+            ),
+        ],
+    ), 
+    model = gpt2
+)
+
+# intervene base with sources on the fourth token.
+original_outputs, intervened_outputs = intervenable_gpt2(
+    tokenizer("The capital of Spain is", return_tensors="pt"),
+    [tokenizer("The capital of Italy is", return_tensors="pt")],
+    {"sources->base": ([[[4]]], [[[4]]])}
+)
+original_outputs.last_hidden_state - intervened_outputs.last_hidden_state
+```
+which returns,
+
+```
+tensor([[[ 0.0000,  0.0000,  0.0000,  ...,  0.0000,  0.0000,  0.0000],
+         [ 0.0000,  0.0000,  0.0000,  ...,  0.0000,  0.0000,  0.0000],
+         [ 0.0000,  0.0000,  0.0000,  ...,  0.0000,  0.0000,  0.0000],
+         [ 0.0000,  0.0000,  0.0000,  ...,  0.0000,  0.0000,  0.0000],
+         [ 0.0008, -0.0078, -0.0066,  ...,  0.0007, -0.0018,  0.0060]]])
+```
+showing that we have causal effects only on the last token as expected. You can share your interventions through Huggingface with others with a single call,
+```python
+intervenable_gpt2.save(
+    save_directory="./your_gpt2_mounting_point/",
+    save_to_hf_hub=True,
+    hf_repo_name="your_gpt2_mounting_point",
 )
 ```
+We see interventions are knobs that can mount on models. And people can share their knobs with others to share knowledge about how to steer models. You can try this at [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/stanfordnlp/pyvene/blob/main/tutorials/basic_tutorials/Load_Save_and_Share_Interventions.ipynb) [**Intervention Sharing**]  
 
-#### Turn the model into an alignable object
-The basic idea is to consider the alignable model as a regular HuggingFace model, except that it supports an intervenable forward function.
+You can also use the `intervenable_gpt2` just like a regular torch model component inside another model, or another pipeline as,
 ```py
-alignable_gpt = AlignableModel(alignable_config, gpt)
+import torch
+import torch.nn as nn
+from typing import List, Optional, Tuple, Union, Dict
+
+class ModelWithIntervenables(nn.Module):
+    def __init__(self):
+        super(ModelWithIntervenables, self).__init__()
+        self.intervenable_gpt2 = intervenable_gpt2
+        self.relu = nn.ReLU()
+        self.fc = nn.Linear(768, 1)
+        # Your other downstream components go here
+
+    def forward(
+        self, 
+        base,
+        sources: Optional[List] = None,
+        unit_locations: Optional[Dict] = None,
+        activations_sources: Optional[Dict] = None,
+        subspaces: Optional[List] = None,
+    ):
+        _, counterfactual_x = self.intervenable_gpt2(
+            base,
+            sources,
+            unit_locations,
+            activations_sources,
+            subspaces
+        )
+        counterfactual_x = counterfactual_x.last_hidden_state
+        
+        counterfactual_x = self.relu(counterfactual_x)
+        counterfactual_x = self.fc(counterfactual_x)
+        return counterfactual_x
 ```
 
-#### Intervene by swapping activations between examples
-```py
-base = tokenizer("The capital of Spain is", return_tensors="pt")
-sources = [tokenizer("The capital of Italy is", return_tensors="pt")]
 
-_, counterfactual_outputs = alignable_gpt(
-    base,
-    sources,
-    {"sources->base": ([[[4]]], [[[4]]])} # intervene base with sources
-)
-```
---- 
+## Selected Tutorials
 
-### Alignments
-If the model responds systematically to your interventions, then you start to associate certain regions in the network with a high-level concept. This is an alignment. Here is a more concrete example,
+| **Level** |  **Tutorial** |  **Run in Colab** |  **Description** |
+| --- | -------------  |  -------------  |  -------------  | 
+| Beginner |  [**Getting Started**](tutorials/basic_tutorials/Basic_Intervention.ipynb) | [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/stanfordnlp/pyvene/blob/main/tutorials/basic_tutorials/Basic_Intervention.ipynb)  |  Introduces basic static intervention on factual recall examples |
+| Beginner | [**Intervened Model Generation**](tutorials/advanced_tutorials/Intervened_Model_Generation.ipynb) | [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/stanfordnlp/pyvene/blob/main/tutorials/advanced_tutorials/Intervened_Model_Generation.ipynb) | Shows how to intervene a model during generation |
+| Intermediate | [**Intervene Your Local Models**](tutorials/basic_tutorials/Add_New_Model_Type.ipynb) | [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/stanfordnlp/pyvene/blob/main/tutorials/basic_tutorials/Add_New_Model_Type.ipynb) | Illustrates how to run this library with your own models |
+| Advanced | [**Trainable Interventions for Causal Abstraction**](tutorials/advanced_tutorials/DAS_Main_Introduction.ipynb) | [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/stanfordnlp/pyvene/blob/main/tutorials/advanced_tutorials/DAS_Main_Introduction.ipynb) | Illustrates how to train an intervention to discover causal mechanisms of a neural model |
+
+## Causal Abstraction: From Interventions to Gain Interpretability Insights
+Basic interventions are fun but we cannot make any causal claim systematically. To gain actual interpretability insights, we want to measure the counterfactual behaviors of a model in a data-driven fashion. In other words, if the model responds systematically to your interventions, then you start to associate certain regions in the network with a high-level concept. We also call this alignment search process with model internals.
+
+### Understanding Causal Mechanisms with Static Interventions
+Here is a more concrete example,
 ```py
 def add_three_numbers(a, b, c):
     var_x = a + b
     return var_x + c
 ```
-The function solves a 3-digit sum problem. Let's say, we trained a neural network to solve this problem perfectly. **One concrete alignment problem is** "Can we find the representation of (a + b) in the neural network?". We can use this library to answer this question. Specifically, we can do the following,
+The function solves a 3-digit sum problem. Let's say, we trained a neural network to solve this problem perfectly. "Can we find the representation of (a + b) in the neural network?". We can use this library to answer this question. Specifically, we can do the following,
 
-- **Step 1:** Form Alignment Hypothesis: We hypothesize that a set of neurons N aligns with (a + b).
+- **Step 1:** Form Interpretability (Alignment) Hypothesis: We hypothesize that a set of neurons N aligns with (a + b).
 - **Step 2:** Counterfactual Testings: If our hypothesis is correct, then swapping neurons N between examples would give us expected counterfactual behaviors. For instance, the values of N for (1+2)+3, when swapping with N for (2+3)+4, the output should be (2+3)+3 or (1+2)+4 depending on the direction of the swap.
 - **Step 3:** Reject Sampling of Hypothesis: Running tests multiple times and aggregating statistics in terms of counterfactual behavior matching. Proposing a new hypothesis based on the results. 
 
 To translate the above steps into API calls with the library, it will be a single call,
 ```py
-alignable.evaluate_alignment(
+intervenable.evaluate(
     train_dataloader=test_dataloader,
     compute_metrics=compute_metrics,
     inputs_collator=inputs_collator
 )
 ```
-where you provide testing data (basically interventional data and the counterfactual behavior you are looking for) along with your metrics functions. The library will try to evaluate the alignment with the intervention you specified in the config. You can follow [this tutorial](https://github.com/frankaging/align-transformers/blob/main/tutorials/Generic%20alignment%20training.ipynb) for alignment finding and evaluation with a provided fine-tuned gpt2 model.
+where you provide testing data (basically interventional data and the counterfactual behavior you are looking for) along with your metrics functions. The library will try to evaluate the alignment with the intervention you specified in the config.
 
 --- 
 
-### Alignments with Trainable Interventions
-The alignment searching process outlined above can be tedious when your neural network is large. For a single hypothesized alignment, you basically need to set up different intervention configs targeting different layers and positions to verify your hypothesis. Instead of doing this brute-force search process, you can turn it into an optimization problem which also has other benefits such as distributed alignments. For details, you can read more here[^ii].
+### Understanding Causal Mechanism with Trainable Interventions
+The alignment searching process outlined above can be tedious when your neural network is large. For a single hypothesized alignment, you basically need to set up different intervention configs targeting different layers and positions to verify your hypothesis. Instead of doing this brute-force search process, you can turn it into an optimization problem which also has other benefits such as distributed alignments.
 
 In its crux, we basically want to train an intervention to have our desired counterfactual behaviors in mind. And if we can indeed train such interventions, we claim that causally informative information should live in the intervening representations! Below, we show one type of trainable intervention `models.interventions.RotatedSpaceIntervention` as,
 ```py
@@ -107,50 +162,36 @@ Instead of activation swapping in the original representation space, we first **
 
 You can now also make a single API call to train your intervention,
 ```py
-alignable.find_alignment(
+intervenable.train(
     train_dataloader=train_dataloader,
     compute_loss=compute_loss,
     compute_metrics=compute_metrics,
     inputs_collator=inputs_collator
 )
 ```
-where you need to pass in a trainable dataset, and your customized loss and metrics function. The trainable interventions can later be saved on to your disk.
+where you need to pass in a trainable dataset, and your customized loss and metrics function. The trainable interventions can later be saved on to your disk. You can also use `intervenable.evaluate()` your interventions in terms of customized objectives.
 
+## Contributing to This Library
+Please see [our guidelines](CONTRIBUTING.md) about how to contribute to this repository.         
 
-## Tutorials
-We released [a set of tutorials](https://github.com/frankaging/align-transformers/tree/main/tutorials) for doing model interventions and model alignments. Here are some of them,
+*Pull requests, bug reports, and all other forms of contribution are welcomed and highly encouraged!* :octocat:  
 
-### `Basic_Intervention.ipynb` 
-(**Intervention Tutorial**) This is a tutorial for doing simple path patching as in **Path Patching**[^pp], **Causal Scrubbing**[^cs]. Thanks to [Aryaman Arora](https://aryaman.io/). This is a set of experiments trying to reproduce some of the experiments in his awesome [nano-causal-interventions](https://github.com/aryamanarora/nano-causal-interventions) repository.
+### Other Ways of Installation
 
-### `Intervened_Model_Generation.ipynb` 
-(**Intervention Tutorial**) This is a tutorial on how to intervene the TinyStories-33M model to change its story generation, with sad endings and happy endings. Different from other tutorials, this is a multi-token language generation, closer to other real-world use cases.
-
-### `Intervention_Training.ipynb` 
-(**Alignment Tutorial**) This is a tutorial covering the basics of how to train an intervention to find alignments with a gpt2 model finetuned on a logical reasoning task.
-
-### `DAS_with_IOI.ipynb` 
-(**Alignment Tutorial**) This is a tutorial reproducing key components (i.e., name mover heads, name position information) for the indirect object identification (IOI) circuit introduced by Wang et al. (2023).
-
-### `NonTransformer_MLP_Intervention.ipynb`  and `NonTransformer_GRU_Intervention.ipynb` 
-(**Intervention Tutorial**) These are tutorials for non-Transformer models such as MLPs and GRUs.
-
-
-## Unit-tests
-When adding new methods or APIs, unit tests are now enforced. To run existing tests, you can kick off the python unittest command in the discovery mode as,
+**Method 2: Install from the Repo**
 ```bash
-cd align-transformers
-python -m unittest discover -p '*TestCase.py'
+pip install git+https://github.com/stanfordnlp/pyvene.git
 ```
-When checking in new code, please also consider to add new tests in the same PR. Please include test results in the PR to make sure all the existing test cases are passing. Please see the `qa_runbook.ipynb` notebook about a set of conventions about how to add test cases. The code coverage for this repository is currently `low`, and we are adding more automated tests.
 
-
-## System Requirements
-- Python 3.8 is supported.
-- Pytorch Version: >= 2.0
-- Transformers ToT is recommended
-- Datasets Version ToT is recommended
-
+**Method 3: Clone and Import**
+```bash
+git clone https://github.com/stanfordnlp/pyvene.git
+```
+and in parallel folder, import to your project as,
+```python
+from pyvene import pyvene
+_, tokenizer, gpt2 = pyvene.create_gpt2()
+```
 
 ## Related Works in Discovering Causal Mechanism of LLMs
 If you would like to read more works on this area, here is a list of papers that try to align or discover the causal mechanisms of LLMs. 
@@ -163,7 +204,7 @@ If you would like to read more works on this area, here is a list of papers that
 
 
 ## Citation
-If you use this repository, please consider to cite relevant papers:
+Library paper is forthcoming. For now, if you use this repository, please consider to cite relevant papers:
 ```stex
   @article{geiger-etal-2023-DAS,
         title={Finding Alignments Between Interpretable Causal Variables and Distributed Neural Representations}, 
@@ -179,7 +220,3 @@ If you use this repository, please consider to cite relevant papers:
         booktitle={NeurIPS}
   }
 ```
-
-[^pp]: [Wang et al. (2022)](https://arxiv.org/abs/2211.00593), [Goldowsky-Dill et al. (2023)](https://arxiv.org/abs/2304.05969)
-[^cs]: [Chan et al. (2022)](https://www.lesswrong.com/s/h95ayYYwMebGEYN5y)
-[^ii]: [Geiger et al. (2021a)](https://arxiv.org/abs/2106.02997), [Geiger et al. (2021b)](https://arxiv.org/abs/2112.00826), [Geiger et al. (2023)](https://arxiv.org/abs/2301.04709), [Wu et al. (2023)](https://arxiv.org/pdf/2303.02536)
