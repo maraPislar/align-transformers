@@ -1,0 +1,19 @@
+{
+  "activation_function": "relu",
+  "architectures": [
+    "MLPForClassification"
+  ],
+  "h_dim": 16,
+  "include_bias": true,
+  "include_emb": false,
+  "max_position_embeddings": 512,
+  "model_type": "mlp",
+  "n_labels": 2,
+  "n_layer": 3,
+  "pdrop": 0.0,
+  "problem_type": "multi_label_classification",
+  "squeeze_output": true,
+  "torch_dtype": "float32",
+  "transformers_version": "4.35.2",
+  "vocab_size": 50257
+}
