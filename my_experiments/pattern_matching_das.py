@@ -327,6 +327,9 @@ def main():
                                                             device = "cuda:0",
                                                             sampler=input_sampler)
 
+    n_examples = 12800
+    batch_size = 64
+
     test_dataset = test_pattern_model.generate_counterfactual_dataset(n_examples,
                                                         intervention_id,
                                                         batch_size,
