@@ -254,6 +254,7 @@ def save_results(layer, report):
         json.dump(report, json_file)
 
 def main():
+    torch.cuda.empty_cache()
     seed = 42
     np.random.seed(seed)
     random.seed(seed)
@@ -320,6 +321,8 @@ def main():
     # apply DAS for every layer
     n_examples = 1280000
     batch_size = 6400
+
+    torch.cuda.empty_cache()
 
     train_dataset = pattern_model.generate_counterfactual_dataset(n_examples,
                                                             intervention_id,
