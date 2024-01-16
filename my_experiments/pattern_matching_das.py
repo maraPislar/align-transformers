@@ -327,17 +327,14 @@ def main():
                                                             device = "cuda:0",
                                                             sampler=input_sampler)
 
-    n_examples = 12800
-    batch_size = 64
-
-    test_dataset = test_pattern_model.generate_counterfactual_dataset(n_examples,
+    test_dataset = test_pattern_model.generate_counterfactual_dataset(10000,
                                                         intervention_id,
                                                         batch_size,
                                                         device = "cuda:0",
                                                         sampler=input_sampler)
 
     for layer in range(config.n_layer):
-        DAS_per_layer(trained, train_dataset, test_dataset, layer, batch_size, epochs=epochs)
+        DAS_per_layer(trained, train_dataset, test_dataset, layer, batch_size=6400, epochs=epochs)
 
     # visualize results
     report_dicts = []
