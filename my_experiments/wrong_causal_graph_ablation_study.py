@@ -283,9 +283,7 @@ def main():
     epochs = 10
     gradient_accumulation_steps = 1
     total_step = 0
-    target_total_step = len(dataset) * epochs
 
-    t_total = int(len(dataset) * epochs)
     optimizer_params = []
     for k, v in intervenable.interventions.items():
         optimizer_params += [{"params": v[0].rotate_layer.parameters()}]
