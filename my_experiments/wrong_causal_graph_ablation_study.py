@@ -513,10 +513,10 @@ def main():
     random.seed(seed)
     torch.manual_seed(seed)
 
-    equality_model = get_equality_model(embedding_dim=2)
-    test_equality_model = get_equality_model(embedding_dim=4)
-    # pattern_model = get_pattern_model(embedding_dim=2, number_of_entities=20)
-    # test_pattern_model = get_pattern_model(embedding_dim=4, number_of_entities=20)
+    # equality_model = get_equality_model(embedding_dim=2)
+    # test_equality_model = get_equality_model(embedding_dim=4)
+    pattern_model = get_pattern_model(embedding_dim=2, number_of_entities=20)
+    test_pattern_model = get_pattern_model(embedding_dim=4, number_of_entities=20)
     left_right_boundary_model = get_let_right_boundary_model(embedding_dim = 2, number_of_entities = 20)
     test_left_right_boundary_model = get_let_right_boundary_model(embedding_dim = 4, number_of_entities = 20)
 
@@ -525,17 +525,17 @@ def main():
     # wrong_causal_model_experiment(pattern_model, test_pattern_model, pattern_matching_input_sampler,
     #                               equality_model, test_equality_model, input_sampler, intervention_id)
     
-    wrong_causal_model_experiment(equality_model, test_equality_model, input_sampler,
-                                  left_right_boundary_model, test_left_right_boundary_model, left_right_boundary_input_sampler, left_right_boundary_model_intervention_id)
-    
-    wrong_causal_model_experiment(left_right_boundary_model, test_left_right_boundary_model, left_right_boundary_input_sampler,
-                                equality_model, test_equality_model, input_sampler, intervention_id)
-
-    # wrong_causal_model_experiment(pattern_model, test_pattern_model, pattern_matching_input_sampler,
+    # wrong_causal_model_experiment(equality_model, test_equality_model, input_sampler,
     #                               left_right_boundary_model, test_left_right_boundary_model, left_right_boundary_input_sampler, left_right_boundary_model_intervention_id)
     
     # wrong_causal_model_experiment(left_right_boundary_model, test_left_right_boundary_model, left_right_boundary_input_sampler,
-    #                             pattern_model, test_pattern_model, pattern_matching_input_sampler, pattern_model_intervention_id)
+    #                             equality_model, test_equality_model, input_sampler, intervention_id)
+
+    wrong_causal_model_experiment(pattern_model, test_pattern_model, pattern_matching_input_sampler,
+                                  left_right_boundary_model, test_left_right_boundary_model, left_right_boundary_input_sampler, left_right_boundary_model_intervention_id)
+    
+    wrong_causal_model_experiment(left_right_boundary_model, test_left_right_boundary_model, left_right_boundary_input_sampler,
+                                pattern_model, test_pattern_model, pattern_matching_input_sampler, pattern_model_intervention_id)
     
 
 if __name__ =="__main__":
