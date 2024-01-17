@@ -234,7 +234,7 @@ def eval_mlp(trainer, causal_model, input_sampler):
     test_preds = trainer.predict(test_ds)
     print(classification_report(y_test, test_preds[0].argmax(1)))
 
-def train_das(intervenable, train_dataset, embedding_dim=4, epochs=10, gradient_accumulation_steps = 1, total_step = 0):
+def train_das(intervenable, train_dataset, batch_size, embedding_dim=4, epochs=10, gradient_accumulation_steps = 1, total_step = 0):
 
     optimizer_params = []
     for k, v in intervenable.interventions.items():
@@ -441,14 +441,14 @@ def wrong_causal_model_experiment(causal_model_trainer, test_causal_model_traine
 
     # train DAS
 
-    n_examples = 1280000
-    batch_size = 6400
+    n_examples = 12800
+    batch_size = 64
 
     train_dataset = causal_model_das.generate_counterfactual_dataset(
         n_examples, das_intervention_id, batch_size, sampler=das_input_sampler
     )
 
-    intervenable = train_das(intervenable, train_dataset, embedding_dim)
+    intervenable = train_das(intervenable, train_dataset, batch_size, embedding_dim)
 
     # testing stage
     test_dataset = test_causal_model_das.generate_counterfactual_dataset(
