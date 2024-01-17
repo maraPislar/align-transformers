@@ -263,6 +263,7 @@ def main():
 
     # define causal model
     pattern_model = get_causal_model(embedding_dim=2, number_of_entities=20)
+    test_pattern_model = get_causal_model(embedding_dim=4, number_of_entities=20)
 
     # generate data
     n_examples = 1048576
@@ -319,8 +320,8 @@ def main():
     print(classification_report(y_test, test_preds[0].argmax(1)))
 
     # apply DAS for every layer
-    n_examples = 1280000
-    batch_size = 640
+    n_examples = 12800
+    batch_size = 64
 
     torch.cuda.empty_cache()
 
