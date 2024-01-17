@@ -338,7 +338,7 @@ def main():
                                                         sampler=input_sampler)
 
     for layer in range(config.n_layer):
-        DAS_per_layer(trained, train_dataset, test_dataset, layer, batch_size=6400, epochs=epochs)
+        DAS_per_layer(trained, train_dataset, test_dataset, layer, batch_size, epochs=epochs)
 
     # visualize results
     report_dicts = []
