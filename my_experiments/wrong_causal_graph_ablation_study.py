@@ -441,8 +441,8 @@ def wrong_causal_model_experiment(causal_model_trainer, test_causal_model_traine
 
     # train DAS
 
-    n_examples = 12800
-    batch_size = 64
+    n_examples = 1280000
+    batch_size = 6400
 
     train_dataset = causal_model_das.generate_counterfactual_dataset(
         n_examples, das_intervention_id, batch_size, sampler=das_input_sampler
