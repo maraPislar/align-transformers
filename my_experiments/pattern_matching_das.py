@@ -320,7 +320,7 @@ def main():
 
     # apply DAS for every layer
     n_examples = 1280000
-    batch_size = 6400
+    batch_size = 640
 
     torch.cuda.empty_cache()
 
