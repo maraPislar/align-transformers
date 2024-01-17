@@ -21,6 +21,7 @@ from pyvene import (
     IntervenableRepresentationConfig,
     IntervenableConfig,
 )
+from transformers import TrainingArguments, Trainer
 
 def randvec(n=50, lower=-1, upper=1):
     return np.array([round(random.uniform(lower, upper), 2) for i in range(n)])
@@ -121,17 +122,7 @@ def pattern_model_intervention_id(intervention):
     if "Q" in intervention:
         return 1
 
-def main():
-    seed = 42
-    np.random.seed(seed)
-    random.seed(seed)
-    torch.manual_seed(seed)
-
-    # define causal model
-
-    embedding_dim = 2
-    number_of_entities = 20
-
+def get_equality_model(embedding_dim = 2, number_of_entities = 20):
     variables = ["W", "X", "Y", "Z", "WX", "YZ", "O"]
 
     reps = [randvec(embedding_dim, lower=-1, upper=1) for _ in range(number_of_entities)]
@@ -149,7 +140,6 @@ def main():
         "YZ": ["Y", "Z"],
         "O": ["WX", "YZ"],
     }
-
 
     def FILLER():
         return reps[0]
@@ -175,17 +165,10 @@ def main():
         "O": (1.5, 3),
     }
 
-    equality_model = CausalModel(variables, values, parents, functions, pos=pos)
+    return CausalModel(variables, values, parents, functions, pos=pos)
 
-    # define mlp model
-
-    embedding_dim = 4
-
-    n_examples = 1048576
-    batch_size = 1024
-
-    X, y = equality_model.generate_factual_dataset(n_examples, input_sampler)
-
+def train_mlp(causal_model, input_sampler, embedding_dim = 4, n_examples = 1048576, batch_size = 1024):
+    X, y = causal_model.generate_factual_dataset(n_examples, input_sampler)
     X = X.unsqueeze(1)
 
     config = MLPConfig(
@@ -208,8 +191,6 @@ def main():
             "inputs_embeds": X,
         }
     )
-
-    from transformers import TrainingArguments, Trainer
 
     training_args = TrainingArguments(
         output_dir="test_trainer",
@@ -234,57 +215,10 @@ def main():
     )
 
     _ = trainer.train()
+    return trained, trainer
 
-    # define the test causal model
-
-    variables = ["W", "X", "Y", "Z", "WX", "YZ", "O"]
-
-    number_of_test_entities = 100
-
-    reps = [randvec(embedding_dim) for _ in range(number_of_test_entities)]
-    values = {variable: reps for variable in ["W", "X", "Y", "Z"]}
-    values["WX"] = [True, False]
-    values["YZ"] = [True, False]
-    values["O"] = [True, False]
-
-    parents = {
-        "W": [],
-        "X": [],
-        "Y": [],
-        "Z": [],
-        "WX": ["W", "X"],
-        "YZ": ["Y", "Z"],
-        "O": ["WX", "YZ"],
-    }
-
-
-    def FILLER():
-        return reps[0]
-
-
-    functions = {
-        "W": FILLER,
-        "X": FILLER,
-        "Y": FILLER,
-        "Z": FILLER,
-        "WX": lambda x, y: np.array_equal(x, y),
-        "YZ": lambda x, y: np.array_equal(x, y),
-        "O": lambda x, y: x == y,
-    }
-
-    pos = {
-        "W": (0, 0),
-        "X": (1, 0.1),
-        "Y": (2, 0.2),
-        "Z": (3, 0),
-        "WX": (1, 2),
-        "YZ": (2, 2),
-        "O": (1.5, 3),
-    }
-
-    test_equality_model = CausalModel(variables, values, parents, functions, pos=pos)
-
-    X_test, y_test = test_equality_model.generate_factual_dataset(10000, input_sampler)
+def eval_mlp(trainer, causal_model, input_sampler):
+    X_test, y_test = causal_model.generate_factual_dataset(10000, input_sampler)
     print("Test Results")
 
     test_ds = Dataset.from_dict(
@@ -298,41 +232,9 @@ def main():
     )
 
     test_preds = trainer.predict(test_ds)
-
     print(classification_report(y_test, test_preds[0].argmax(1)))
 
-    # DAS
-
-    intervenable_config = IntervenableConfig(
-        intervenable_model_type=type(trained),
-        intervenable_representations=[
-            IntervenableRepresentationConfig(
-                0,  # layer
-                "block_output",  # intervention type
-                "pos",  # intervention unit is now aligne with tokens
-                1,  # max number of unit
-                subspace_partition=None,  # binary partition with equal sizes
-                intervention_link_key=0,
-            ),
-            IntervenableRepresentationConfig(
-                0,  # layer
-                "block_output",  # intervention type
-                "pos",  # intervention unit is now aligne with tokens
-                1,  # max number of unit
-                subspace_partition=None,  # binary partition with equal sizes,
-                intervention_link_key=0,
-            ),
-        ],
-        intervenable_interventions_type=RotatedSpaceIntervention,
-    )
-
-    intervenable = IntervenableModel(intervenable_config, trained, use_fast=True)
-    intervenable.set_device("cuda")
-    intervenable.disable_model_gradients()
-
-    epochs = 10
-    gradient_accumulation_steps = 1
-    total_step = 0
+def train_das(intervenable, train_dataset, embedding_dim=4, epochs=10, gradient_accumulation_steps = 1, total_step = 0):
 
     optimizer_params = []
     for k, v in intervenable.interventions.items():
@@ -340,17 +242,6 @@ def main():
         break
     optimizer = torch.optim.Adam(optimizer_params, lr=0.001)
 
-    # define pattern model
-    pattern_model = get_pattern_model(embedding_dim=2, number_of_entities=20)
-    test_pattern_model = get_pattern_model(embedding_dim=4, number_of_entities=20)
-
-    n_examples = 1280000
-    batch_size = 6400
-    train_dataset = pattern_model.generate_counterfactual_dataset(
-        n_examples, pattern_model_intervention_id, batch_size, sampler=pattern_matching_input_sampler
-    )
-
-    # train
     print('training das')
     intervenable.model.train()  # train enables drop-off but no grads
     print("intervention trainable parameters: ", intervenable.count_parameters())
@@ -443,12 +334,9 @@ def main():
                 optimizer.step()
                 intervenable.set_zero_grad()
             total_step += 1
+    return intervenable
 
-    # testing stage
-    test_dataset = test_pattern_model.generate_counterfactual_dataset(
-        10000, pattern_model_intervention_id, batch_size, device="cuda:0", sampler=pattern_matching_input_sampler
-    )
-
+def eval_das(intervenable, test_dataset, batch_size, embedding_dim=4):
     eval_labels = []
     eval_preds = []
     with torch.no_grad():
@@ -512,6 +400,76 @@ def main():
             eval_labels += [batch["labels"]]
             eval_preds += [torch.argmax(counterfactual_outputs[0], dim=1)]
     print(classification_report(torch.cat(eval_labels).cpu(), torch.cat(eval_preds).cpu()))
+
+def wrong_causal_model_experiment(causal_model_trainer, test_causal_model_trainer, causal_model_das, test_causal_model_das):
+
+    # train the mlp
+    embedding_dim = 4
+    trained, trainer = train_mlp(causal_model_trainer, input_sampler, embedding_dim = 4)
+
+    # test the mlp for the task
+    eval_mlp(trainer, test_causal_model_trainer, input_sampler)
+
+    # define DAS
+    intervenable_config = IntervenableConfig(
+        intervenable_model_type=type(trained),
+        intervenable_representations=[
+            IntervenableRepresentationConfig(
+                0,  # layer
+                "block_output",  # intervention type
+                "pos",  # intervention unit is now aligne with tokens
+                1,  # max number of unit
+                subspace_partition=None,  # binary partition with equal sizes
+                intervention_link_key=0,
+            ),
+            IntervenableRepresentationConfig(
+                0,  # layer
+                "block_output",  # intervention type
+                "pos",  # intervention unit is now aligne with tokens
+                1,  # max number of unit
+                subspace_partition=None,  # binary partition with equal sizes,
+                intervention_link_key=0,
+            ),
+        ],
+        intervenable_interventions_type=RotatedSpaceIntervention,
+    )
+
+    intervenable = IntervenableModel(intervenable_config, trained, use_fast=True)
+    intervenable.set_device("cuda")
+    intervenable.disable_model_gradients()
+
+    # train DAS
+
+    n_examples = 1280000
+    batch_size = 6400
+
+    train_dataset = causal_model_das.generate_counterfactual_dataset(
+        n_examples, pattern_model_intervention_id, batch_size, sampler=pattern_matching_input_sampler
+    )
+
+    intervenable = train_das(intervenable, train_dataset, embedding_dim)
+
+    # testing stage
+    test_dataset = test_causal_model_das.generate_counterfactual_dataset(
+        10000, pattern_model_intervention_id, batch_size, device="cuda:0", sampler=pattern_matching_input_sampler
+    )
+
+    eval_das(intervenable, test_dataset, batch_size, embedding_dim=4)
+
+def main():
+    seed = 42
+    np.random.seed(seed)
+    random.seed(seed)
+    torch.manual_seed(seed)
+
+    equality_model = get_equality_model(embedding_dim=2)
+    test_equality_model = get_equality_model(embedding_dim=4)
+    pattern_model = get_pattern_model(embedding_dim=2, number_of_entities=20)
+    test_pattern_model = get_pattern_model(embedding_dim=4, number_of_entities=20)
+
+    wrong_causal_model_experiment(equality_model, test_equality_model, pattern_model, test_pattern_model)
+    wrong_causal_model_experiment(pattern_model, test_pattern_model, equality_model, test_equality_model)
+    
 
 if __name__ =="__main__":
     main()
