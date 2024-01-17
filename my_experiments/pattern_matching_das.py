@@ -344,7 +344,7 @@ def main():
     report_dicts = []
 
     for layer in range(config.n_layer):
-        file_path = f'../align-transformers/report_{layer}.json'
+        file_path = f'/gpfs/home1/mpislar/report_{layer}.json'
         with open(file_path, 'r') as json_file:
             report_dict = json.load(json_file)
             report_dicts.append(report_dict)
