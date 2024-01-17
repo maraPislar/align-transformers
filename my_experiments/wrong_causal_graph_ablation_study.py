@@ -70,6 +70,57 @@ def batched_random_sampler(data, batch_size):
         for i in range(b_i * batch_size, (b_i + 1) * batch_size):
             yield i
 
+def get_pattern_model(embedding_dim = 2, number_of_entities = 20):
+
+    variables =  ["W", "X", "Y", "Z", "P", "Q", "O"]
+
+    reps = [randvec(embedding_dim, lower=-1, upper=1) for _ in range(number_of_entities)]
+    values = {variable:reps for variable in ["W","X","Y","Z"]}
+    values["P"] = [True, False]
+    values["Q"] = [True, False]
+    values["O"] = [True, False]
+
+    parents = {"W":[],"X":[], "Y":[], "Z":[], 
+            "P":["W", "Y"], "Q":["X", "Z"], 
+            "O":["P", "Q"]}
+
+    def FILLER():
+        return reps[0]
+
+    functions = {"W":FILLER,"X":FILLER, "Y":FILLER, "Z":FILLER, 
+                "P": lambda x,y: np.array_equal(x,y), 
+                "Q":lambda x,y: np.array_equal(x,y), 
+                "O": lambda x,y: x==y}
+
+    pos = {"W":(0.2,0),"X":(1,0.1), "Y":(2,0.2), "Z":(2.8,0), 
+            "P":(1,2), "Q":(2,2), 
+            "O":(1.5,3)}
+
+    return CausalModel(variables, values, parents, functions, pos = pos)
+
+def pattern_matching_input_sampler():
+    A = randvec(4)
+    B = randvec(4)
+    C = randvec(4)
+    D = randvec(4)
+    x = random.randint(1,4)
+    if x == 1:
+        return {"W":A, "X":B, "Y":C, "Z":D}
+    elif x == 2:
+        return {"W":A,"X":B, "Y":A, "Z":B}
+    elif x == 3:
+        return {"W":A ,"X":B, "Y":A, "Z":C}
+    elif x == 4:
+        return {"W":A ,"X":B, "Y":C, "Z":B}
+
+def pattern_model_intervention_id(intervention):
+    if "P" in intervention and "Q" in intervention:
+        return 2
+    if "P" in intervention:
+        return 0
+    if "Q" in intervention:
+        return 1
+
 def main():
     seed = 42
     np.random.seed(seed)
@@ -123,8 +174,6 @@ def main():
         "YZ": (2, 2),
         "O": (1.5, 3),
     }
-
-    equiv_classes = {}
 
     equality_model = CausalModel(variables, values, parents, functions, pos=pos)
 
@@ -186,6 +235,7 @@ def main():
 
     _ = trainer.train()
 
+    # define the test causal model
 
     variables = ["W", "X", "Y", "Z", "WX", "YZ", "O"]
 
@@ -290,10 +340,14 @@ def main():
         break
     optimizer = torch.optim.Adam(optimizer_params, lr=0.001)
 
+    # define pattern model
+    pattern_model = get_pattern_model(embedding_dim=2, number_of_entities=20)
+    test_pattern_model = get_pattern_model(embedding_dim=4, number_of_entities=20)
+
     n_examples = 1280000
     batch_size = 6400
-    train_dataset = equality_model.generate_counterfactual_dataset(
-        n_examples, intervention_id, batch_size, sampler=input_sampler
+    train_dataset = pattern_model.generate_counterfactual_dataset(
+        n_examples, pattern_model_intervention_id, batch_size, sampler=pattern_matching_input_sampler
     )
 
     # train
@@ -391,8 +445,8 @@ def main():
             total_step += 1
 
     # testing stage
-    test_dataset = test_equality_model.generate_counterfactual_dataset(
-        10000, intervention_id, batch_size, device="cuda:0", sampler=input_sampler
+    test_dataset = test_pattern_model.generate_counterfactual_dataset(
+        10000, pattern_model_intervention_id, batch_size, device="cuda:0", sampler=pattern_matching_input_sampler
     )
 
     eval_labels = []
