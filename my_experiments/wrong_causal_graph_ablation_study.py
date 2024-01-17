@@ -401,14 +401,15 @@ def eval_das(intervenable, test_dataset, batch_size, embedding_dim=4):
             eval_preds += [torch.argmax(counterfactual_outputs[0], dim=1)]
     print(classification_report(torch.cat(eval_labels).cpu(), torch.cat(eval_preds).cpu()))
 
-def wrong_causal_model_experiment(causal_model_trainer, test_causal_model_trainer, causal_model_das, test_causal_model_das):
+def wrong_causal_model_experiment(causal_model_trainer, test_causal_model_trainer, trainer_input_sampler,
+                                   causal_model_das, test_causal_model_das, das_input_sampler, das_intervention_id):
 
     # train the mlp
     embedding_dim = 4
-    trained, trainer = train_mlp(causal_model_trainer, input_sampler, embedding_dim = 4)
+    trained, trainer = train_mlp(causal_model_trainer, trainer_input_sampler, embedding_dim = 4)
 
     # test the mlp for the task
-    eval_mlp(trainer, test_causal_model_trainer, input_sampler)
+    eval_mlp(trainer, test_causal_model_trainer, trainer_input_sampler)
 
     # define DAS
     intervenable_config = IntervenableConfig(
@@ -444,14 +445,14 @@ def wrong_causal_model_experiment(causal_model_trainer, test_causal_model_traine
     batch_size = 6400
 
     train_dataset = causal_model_das.generate_counterfactual_dataset(
-        n_examples, pattern_model_intervention_id, batch_size, sampler=pattern_matching_input_sampler
+        n_examples, das_intervention_id, batch_size, sampler=das_input_sampler
     )
 
     intervenable = train_das(intervenable, train_dataset, embedding_dim)
 
     # testing stage
     test_dataset = test_causal_model_das.generate_counterfactual_dataset(
-        10000, pattern_model_intervention_id, batch_size, device="cuda:0", sampler=pattern_matching_input_sampler
+        10000, das_intervention_id, batch_size, device="cuda:0", sampler=das_input_sampler
     )
 
     eval_das(intervenable, test_dataset, batch_size, embedding_dim=4)
@@ -467,8 +468,10 @@ def main():
     pattern_model = get_pattern_model(embedding_dim=2, number_of_entities=20)
     test_pattern_model = get_pattern_model(embedding_dim=4, number_of_entities=20)
 
-    wrong_causal_model_experiment(equality_model, test_equality_model, pattern_model, test_pattern_model)
-    wrong_causal_model_experiment(pattern_model, test_pattern_model, equality_model, test_equality_model)
+    wrong_causal_model_experiment(equality_model, test_equality_model, input_sampler,
+                                  pattern_model, test_pattern_model, pattern_matching_input_sampler, pattern_model_intervention_id)
+    wrong_causal_model_experiment(pattern_model, test_pattern_model, pattern_matching_input_sampler,
+                                  equality_model, test_equality_model, input_sampler, intervention_id)
     
 
 if __name__ =="__main__":
