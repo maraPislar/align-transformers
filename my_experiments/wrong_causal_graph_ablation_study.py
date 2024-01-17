@@ -121,6 +121,26 @@ def pattern_model_intervention_id(intervention):
         return 0
     if "Q" in intervention:
         return 1
+    
+def left_right_boundary_model_intervention_id(intervention):
+    if "P" in intervention and "Q" in intervention:
+        return 2
+    if "P" in intervention:
+        return 0
+    if "Q" in intervention:
+        return 1
+    
+def left_right_boundary_input_sampler():
+    A = randvec(4)
+    B = randvec(4)
+    C = randvec(4)
+    x = random.randint(1,3)
+    if x == 1:
+        return {"X":A, "Y":B, "Z":C}
+    elif x == 2:
+        return {"X":A, "Y":A, "Z":B}
+    elif x == 3:
+        return {"X":B, "Y":B, "Z":B}
 
 def get_equality_model(embedding_dim = 2, number_of_entities = 20):
     variables = ["W", "X", "Y", "Z", "WX", "YZ", "O"]
@@ -166,6 +186,36 @@ def get_equality_model(embedding_dim = 2, number_of_entities = 20):
     }
 
     return CausalModel(variables, values, parents, functions, pos=pos)
+
+def get_let_right_boundary_model(embedding_dim = 2, number_of_entities = 20):
+
+    variables =  ["X", "Y", "Z", "P", "Q", "O"]
+
+    reps = [randvec(embedding_dim, lower=-1, upper=1) for _ in range(number_of_entities)]
+    values = {variable:reps for variable in ["X","Y","Z"]}
+    values["P"] = [True, False]
+    values["Q"] = [True, False]
+    values["O"] = [True, False]
+
+    parents = {"X":[],"Y":[], "Z":[], 
+            "P":["X", "Z"], "Q":["Y", "Z"], 
+            "O":["P", "Q"]}
+
+    def FILLER():
+        return reps[0]
+
+    check_lower = lambda x, y: np.linalg.norm(x) <= np.linalg.norm(y) # check if the magnitude is lower
+
+    functions = {"X":FILLER, "Y":FILLER, "Z":FILLER, 
+                "P": lambda x,y: check_lower(x,y), 
+                "Q":lambda x,y: check_lower(y,x), 
+                "O": lambda x,y: x and y}
+
+    pos = {"X":(1,0.1), "Y":(2,0.2), "Z":(2.8,0), 
+            "P":(1,2), "Q":(2,2), 
+            "O":(1.5,3)}
+
+    return CausalModel(variables, values, parents, functions, pos = pos)
 
 def train_mlp(causal_model, input_sampler, embedding_dim = 4, n_examples = 1048576, batch_size = 1024):
     X, y = causal_model.generate_factual_dataset(n_examples, input_sampler)
@@ -465,13 +515,21 @@ def main():
 
     equality_model = get_equality_model(embedding_dim=2)
     test_equality_model = get_equality_model(embedding_dim=4)
-    pattern_model = get_pattern_model(embedding_dim=2, number_of_entities=20)
-    test_pattern_model = get_pattern_model(embedding_dim=4, number_of_entities=20)
+    # pattern_model = get_pattern_model(embedding_dim=2, number_of_entities=20)
+    # test_pattern_model = get_pattern_model(embedding_dim=4, number_of_entities=20)
+    left_right_boundary_model = get_let_right_boundary_model(embedding_dim = 2, number_of_entities = 20)
+    test_left_right_boundary_model = get_let_right_boundary_model(embedding_dim = 2, number_of_entities = 20)
 
+    # wrong_causal_model_experiment(equality_model, test_equality_model, input_sampler,
+    #                               pattern_model, test_pattern_model, pattern_matching_input_sampler, pattern_model_intervention_id)
+    # wrong_causal_model_experiment(pattern_model, test_pattern_model, pattern_matching_input_sampler,
+    #                               equality_model, test_equality_model, input_sampler, intervention_id)
+    
     wrong_causal_model_experiment(equality_model, test_equality_model, input_sampler,
-                                  pattern_model, test_pattern_model, pattern_matching_input_sampler, pattern_model_intervention_id)
-    wrong_causal_model_experiment(pattern_model, test_pattern_model, pattern_matching_input_sampler,
-                                  equality_model, test_equality_model, input_sampler, intervention_id)
+                                  left_right_boundary_model, test_left_right_boundary_model, left_right_boundary_input_sampler, left_right_boundary_model_intervention_id)
+    
+    wrong_causal_model_experiment(left_right_boundary_model, test_left_right_boundary_model, left_right_boundary_input_sampler,
+                                equality_model, test_equality_model, input_sampler, intervention_id)
     
 
 if __name__ =="__main__":
