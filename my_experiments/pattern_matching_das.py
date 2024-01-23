@@ -58,20 +58,31 @@ def batched_random_sampler(data, batch_size):
 def randvec(n=50, lower=-1, upper=1):
     return np.array([round(random.uniform(lower, upper), 2) for i in range(n)])
 
+# def input_sampler():
+#     A = randvec(4)
+#     B = randvec(4)
+#     C = randvec(4)
+#     D = randvec(4)
+#     x = random.randint(1,4)
+#     if x == 1:
+#         return {"W":A, "X":B, "Y":C, "Z":D}
+#     elif x == 2:
+#         return {"W":A,"X":B, "Y":A, "Z":B}
+#     elif x == 3:
+#         return {"W":A ,"X":B, "Y":A, "Z":C}
+#     elif x == 4:
+#         return {"W":A ,"X":B, "Y":C, "Z":B}
+
 def input_sampler():
     A = randvec(4)
     B = randvec(4)
     C = randvec(4)
     D = randvec(4)
-    x = random.randint(1,4)
+    x = random.randint(1,2)
     if x == 1:
         return {"W":A, "X":B, "Y":C, "Z":D}
     elif x == 2:
         return {"W":A,"X":B, "Y":A, "Z":B}
-    elif x == 3:
-        return {"W":A ,"X":B, "Y":A, "Z":C}
-    elif x == 4:
-        return {"W":A ,"X":B, "Y":C, "Z":B}
 
 def train_alignable_model(alignable, train_dataset, optimizer, embedding_dim, batch_size = 640, epochs = 6):
     total_step = 0
@@ -241,7 +252,7 @@ def get_causal_model(embedding_dim = 2, number_of_entities = 20):
     functions = {"W":FILLER,"X":FILLER, "Y":FILLER, "Z":FILLER, 
                 "P": lambda x,y: np.array_equal(x,y), 
                 "Q":lambda x,y: np.array_equal(x,y), 
-                "O": lambda x,y: x or y}
+                "O": lambda x,y: x and y}
 
     pos = {"W":(0.2,0),"X":(1,0.1), "Y":(2,0.2), "Z":(2.8,0), 
             "P":(1,2), "Q":(2,2), 
@@ -319,8 +330,8 @@ def main():
     print(classification_report(y_test, test_preds[0].argmax(1)))
 
     # apply DAS for every layer
-    n_examples = 1280000
-    batch_size = 6400
+    n_examples = 12800
+    batch_size = 64
 
     torch.cuda.empty_cache()
 
