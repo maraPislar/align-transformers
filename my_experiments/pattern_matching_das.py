@@ -241,7 +241,7 @@ def get_causal_model(embedding_dim = 2, number_of_entities = 20):
     functions = {"W":FILLER,"X":FILLER, "Y":FILLER, "Z":FILLER, 
                 "P": lambda x,y: np.array_equal(x,y), 
                 "Q":lambda x,y: np.array_equal(x,y), 
-                "O": lambda x,y: x==y}
+                "O": lambda x,y: x==True and y==True}
 
     pos = {"W":(0.2,0),"X":(1,0.1), "Y":(2,0.2), "Z":(2.8,0), 
             "P":(1,2), "Q":(2,2), 
@@ -262,7 +262,7 @@ def main():
     epochs=10
 
     # define causal model
-    pattern_model = get_causal_model(embedding_dim=2, number_of_entities=20)
+    pattern_model = get_causal_model(embedding_dim=4, number_of_entities=20)
     test_pattern_model = get_causal_model(embedding_dim=4, number_of_entities=20)
 
     # generate data
@@ -320,8 +320,8 @@ def main():
     print(classification_report(y_test, test_preds[0].argmax(1)))
 
     # apply DAS for every layer
-    n_examples = 1280000
-    batch_size = 6400
+    n_examples = 12800
+    batch_size = 64
 
     torch.cuda.empty_cache()
 
