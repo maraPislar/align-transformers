@@ -319,8 +319,8 @@ def main():
     print(classification_report(y_test, test_preds[0].argmax(1)))
 
     # apply DAS for every layer
-    n_examples = 12800
-    batch_size = 64
+    n_examples = 1280000
+    batch_size = 6400
 
     torch.cuda.empty_cache()
 
