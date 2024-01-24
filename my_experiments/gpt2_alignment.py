@@ -82,12 +82,7 @@ def train(train_file_path,
         args=training_args,
         data_collator=data_collator,
         train_dataset=train_dataset,
-        eval_dataset=train_dataset,
-        compute_metrics=lambda x: {
-            "accuracy": classification_report(
-                x[0].argmax(1), x[1].argmax(1), output_dict=True
-            )["accuracy"]
-        }
+        eval_dataset=train_dataset
     )
         
     _ = trainer.train()
