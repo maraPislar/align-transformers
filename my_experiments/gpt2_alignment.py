@@ -257,33 +257,33 @@ def intervention_id(intervention):
 
 def main():
 
-    _, tokenizer, gpt2 = pyvene.create_gpt2_lm()
-    tokenizer.pad_token = tokenizer.eos_token
-    _ = gpt2.to("cuda")
+    # _, tokenizer, gpt2 = pyvene.create_gpt2_lm()
+    # tokenizer.pad_token = tokenizer.eos_token
+    # _ = gpt2.to("cuda")
 
-    train_file_path = "/gpfs/home1/mpislar/align-transformers/my_experiments/sum_training_data/training_sums.txt"
+    # train_file_path = "/gpfs/home1/mpislar/align-transformers/my_experiments/sum_training_data/training_sums.txt"
 
     # generate data for training gpt2
     n_examples = 1280000
     causal_model = causal_model_1()
-    inputs, labels = causal_model.generate_factual_dataset(n_examples, input_sampler)
-    generate_file(train_file_path, inputs, labels)
+    # inputs, labels = causal_model.generate_factual_dataset(n_examples, input_sampler)
+    # generate_file(train_file_path, inputs, labels)
 
     # train gpt2 on summing three numbers
-    output_dir = "/gpfs/home1/mpislar/align-transformers/result/"
-    overwrite_output_dir = False
-    batch_size = 64
-    num_train_epochs = 70
+    # output_dir = "/gpfs/home1/mpislar/align-transformers/result/"
+    # overwrite_output_dir = False
+    # batch_size = 64
+    # num_train_epochs = 70
 
-    train(
-        train_file_path=train_file_path,
-        model=gpt2,
-        tokenizer=tokenizer,
-        output_dir=output_dir,
-        overwrite_output_dir=overwrite_output_dir,
-        batch_size=batch_size,
-        num_train_epochs=num_train_epochs
-    )
+    # train(
+    #     train_file_path=train_file_path,
+    #     model=gpt2,
+    #     tokenizer=tokenizer,
+    #     output_dir=output_dir,
+    #     overwrite_output_dir=overwrite_output_dir,
+    #     batch_size=batch_size,
+    #     num_train_epochs=num_train_epochs
+    # )
 
     # load the trained model
     model_path = "/gpfs/home1/mpislar/align-transformers/result/"
@@ -297,216 +297,216 @@ def main():
     test_inputs, test_labels, _ = generate_sum_examples(test_inputs, test_labels) # convert back to prompt
     eval_finetuned_gpt2(model, tokenizer, test_inputs, test_labels, n_examples)
 
-    # # define intervention model
-    # intervenable_config = IntervenableConfig(
-    #     intervenable_model_type=type(model),
-    #     intervenable_representations=[
-    #         IntervenableRepresentationConfig(
-    #             0,  # layer
-    #             "block_output",  # intervention type
-    #             "pos",  # intervention unit is now aligne with tokens
-    #             1,  # max number of unit
-    #             subspace_partition=None,  # binary partition with equal sizes
-    #             intervention_link_key=0,
-    #         ),
-    #         IntervenableRepresentationConfig(
-    #             0,  # layer
-    #             "block_output",  # intervention type
-    #             "pos",  # intervention unit is now aligne with tokens
-    #             1,  # max number of unit
-    #             subspace_partition=None,  # binary partition with equal sizes,
-    #             intervention_link_key=0,
-    #         ),
-    #     ],
-    #     intervenable_interventions_type=RotatedSpaceIntervention,
-    # )
+    # define intervention model
+    intervenable_config = IntervenableConfig(
+        intervenable_model_type=type(model),
+        intervenable_representations=[
+            IntervenableRepresentationConfig(
+                0,  # layer
+                "block_output",  # intervention type
+                "pos",  # intervention unit is now aligne with tokens
+                1,  # max number of unit
+                subspace_partition=None,  # binary partition with equal sizes
+                intervention_link_key=0,
+            ),
+            IntervenableRepresentationConfig(
+                0,  # layer
+                "block_output",  # intervention type
+                "pos",  # intervention unit is now aligne with tokens
+                1,  # max number of unit
+                subspace_partition=None,  # binary partition with equal sizes,
+                intervention_link_key=0,
+            ),
+        ],
+        intervenable_interventions_type=RotatedSpaceIntervention,
+    )
 
-    # intervenable = IntervenableModel(intervenable_config, model, use_fast=True)
-    # intervenable.set_device("cuda")
-    # intervenable.disable_model_gradients()
+    intervenable = IntervenableModel(intervenable_config, model, use_fast=True)
+    intervenable.set_device("cuda")
+    intervenable.disable_model_gradients()
 
-    # epochs = 10
-    # gradient_accumulation_steps = 1
-    # total_step = 0
-    # # target_total_step = len(dataset) * epochs
+    epochs = 10
+    gradient_accumulation_steps = 1
+    total_step = 0
+    # target_total_step = len(dataset) * epochs
 
-    # # t_total = int(len(dataset) * epochs)
-    # optimizer_params = []
-    # for k, v in intervenable.interventions.items():
-    #     optimizer_params += [{"params": v[0].rotate_layer.parameters()}]
-    #     break
-    # optimizer = torch.optim.Adam(optimizer_params, lr=0.001)
+    # t_total = int(len(dataset) * epochs)
+    optimizer_params = []
+    for k, v in intervenable.interventions.items():
+        optimizer_params += [{"params": v[0].rotate_layer.parameters()}]
+        break
+    optimizer = torch.optim.Adam(optimizer_params, lr=0.001)
 
-    # n_examples = 12800
-    # batch_size = 64
-    # train_dataset = causal_model.generate_counterfactual_dataset(
-    #     n_examples, intervention_id, batch_size, sampler=input_sampler
-    # )
+    n_examples = 12800
+    batch_size = 64
+    train_dataset = causal_model.generate_counterfactual_dataset(
+        n_examples, intervention_id, batch_size, sampler=input_sampler
+    )
 
-    # # train DAS
-    # embedding_dim = 4
+    # train DAS
+    embedding_dim = 4
 
-    # intervenable.model.train()  # train enables drop-off but no grads
-    # print("intervention trainable parameters: ", intervenable.count_parameters())
-    # train_iterator = trange(0, int(epochs), desc="Epoch")
+    intervenable.model.train()  # train enables drop-off but no grads
+    print("intervention trainable parameters: ", intervenable.count_parameters())
+    train_iterator = trange(0, int(epochs), desc="Epoch")
 
-    # for epoch in train_iterator:
-    #     epoch_iterator = tqdm(
-    #         DataLoader(
-    #             train_dataset,
-    #             batch_size=batch_size,
-    #             sampler=batched_random_sampler(train_dataset),
-    #         ),
-    #         desc=f"Epoch: {epoch}",
-    #         position=0,
-    #         leave=True,
-    #     )
-    #     for batch in epoch_iterator:
-    #         batch["input_ids"] = batch["input_ids"].unsqueeze(1)
-    #         batch["source_input_ids"] = batch["source_input_ids"].unsqueeze(2)
-    #         batch_size = batch["input_ids"].shape[0]
-    #         for k, v in batch.items():
-    #             if v is not None and isinstance(v, torch.Tensor):
-    #                 batch[k] = v.to("cuda")
+    for epoch in train_iterator:
+        epoch_iterator = tqdm(
+            DataLoader(
+                train_dataset,
+                batch_size=batch_size,
+                sampler=batched_random_sampler(train_dataset, batch_size),
+            ),
+            desc=f"Epoch: {epoch}",
+            position=0,
+            leave=True,
+        )
+        for batch in epoch_iterator:
+            batch["input_ids"] = batch["input_ids"].unsqueeze(1)
+            batch["source_input_ids"] = batch["source_input_ids"].unsqueeze(2)
+            batch_size = batch["input_ids"].shape[0]
+            for k, v in batch.items():
+                if v is not None and isinstance(v, torch.Tensor):
+                    batch[k] = v.to("cuda")
 
-    #         if batch["intervention_id"][0] == 2:
-    #             _, counterfactual_outputs = intervenable(
-    #                 {"inputs_embeds": batch["input_ids"]},
-    #                 [
-    #                     {"inputs_embeds": batch["source_input_ids"][:, 0]},
-    #                     {"inputs_embeds": batch["source_input_ids"][:, 1]},
-    #                 ],
-    #                 {
-    #                     "sources->base": (
-    #                         [[[0]] * batch_size, [[0]] * batch_size],
-    #                         [[[0]] * batch_size, [[0]] * batch_size],
-    #                     )
-    #                 },
-    #                 subspaces=[
-    #                     [[_ for _ in range(0, embedding_dim * 2)]] * batch_size,
-    #                     [[_ for _ in range(embedding_dim * 2, embedding_dim * 4)]]
-    #                     * batch_size,
-    #                 ],
-    #             )
-    #         elif batch["intervention_id"][0] == 0:
-    #             _, counterfactual_outputs = intervenable(
-    #                 {"inputs_embeds": batch["input_ids"]},
-    #                 [{"inputs_embeds": batch["source_input_ids"][:, 0]}, None],
-    #                 {
-    #                     "sources->base": (
-    #                         [[[0]] * batch_size, None],
-    #                         [[[0]] * batch_size, None],
-    #                     )
-    #                 },
-    #                 subspaces=[
-    #                     [[_ for _ in range(0, embedding_dim * 2)]] * batch_size,
-    #                     None,
-    #                 ],
-    #             )
-    #         elif batch["intervention_id"][0] == 1:
-    #             _, counterfactual_outputs = intervenable(
-    #                 {"inputs_embeds": batch["input_ids"]},
-    #                 [None, {"inputs_embeds": batch["source_input_ids"][:, 0]}],
-    #                 {
-    #                     "sources->base": (
-    #                         [None, [[0]] * batch_size],
-    #                         [None, [[0]] * batch_size],
-    #                     )
-    #                 },
-    #                 subspaces=[
-    #                     None,
-    #                     [[_ for _ in range(embedding_dim * 2, embedding_dim * 4)]]
-    #                     * batch_size,
-    #                 ],
-    #             )
-    #         eval_metrics = compute_metrics(
-    #             counterfactual_outputs[0].argmax(1), batch["labels"].squeeze()
-    #         )
+            if batch["intervention_id"][0] == 2:
+                _, counterfactual_outputs = intervenable(
+                    {"inputs_embeds": batch["input_ids"]},
+                    [
+                        {"inputs_embeds": batch["source_input_ids"][:, 0]},
+                        {"inputs_embeds": batch["source_input_ids"][:, 1]},
+                    ],
+                    {
+                        "sources->base": (
+                            [[[0]] * batch_size, [[0]] * batch_size],
+                            [[[0]] * batch_size, [[0]] * batch_size],
+                        )
+                    },
+                    subspaces=[
+                        [[_ for _ in range(0, embedding_dim * 2)]] * batch_size,
+                        [[_ for _ in range(embedding_dim * 2, embedding_dim * 4)]]
+                        * batch_size,
+                    ],
+                )
+            elif batch["intervention_id"][0] == 0:
+                _, counterfactual_outputs = intervenable(
+                    {"inputs_embeds": batch["input_ids"]},
+                    [{"inputs_embeds": batch["source_input_ids"][:, 0]}, None],
+                    {
+                        "sources->base": (
+                            [[[0]] * batch_size, None],
+                            [[[0]] * batch_size, None],
+                        )
+                    },
+                    subspaces=[
+                        [[_ for _ in range(0, embedding_dim * 2)]] * batch_size,
+                        None,
+                    ],
+                )
+            elif batch["intervention_id"][0] == 1:
+                _, counterfactual_outputs = intervenable(
+                    {"inputs_embeds": batch["input_ids"]},
+                    [None, {"inputs_embeds": batch["source_input_ids"][:, 0]}],
+                    {
+                        "sources->base": (
+                            [None, [[0]] * batch_size],
+                            [None, [[0]] * batch_size],
+                        )
+                    },
+                    subspaces=[
+                        None,
+                        [[_ for _ in range(embedding_dim * 2, embedding_dim * 4)]]
+                        * batch_size,
+                    ],
+                )
+            eval_metrics = compute_metrics(
+                counterfactual_outputs[0].argmax(1), batch["labels"].squeeze()
+            )
 
-    #         # loss and backprop
-    #         loss = compute_loss(
-    #             counterfactual_outputs[0], batch["labels"].squeeze().to(torch.long)
-    #         )
+            # loss and backprop
+            loss = compute_loss(
+                counterfactual_outputs[0], batch["labels"].squeeze().to(torch.long)
+            )
 
-    #         epoch_iterator.set_postfix({"loss": loss, "acc": eval_metrics["accuracy"]})
+            epoch_iterator.set_postfix({"loss": loss, "acc": eval_metrics["accuracy"]})
 
-    #         if gradient_accumulation_steps > 1:
-    #             loss = loss / gradient_accumulation_steps
-    #         loss.backward()
-    #         if total_step % gradient_accumulation_steps == 0:
-    #             optimizer.step()
-    #             intervenable.set_zero_grad()
-    #         total_step += 1
+            if gradient_accumulation_steps > 1:
+                loss = loss / gradient_accumulation_steps
+            loss.backward()
+            if total_step % gradient_accumulation_steps == 0:
+                optimizer.step()
+                intervenable.set_zero_grad()
+            total_step += 1
     
-    # # test DAS
+    # test DAS
 
-    # test_dataset = test_causal_model.generate_counterfactual_dataset(
-    #     10000, intervention_id, batch_size, device="cuda:0", sampler=input_sampler
-    # )
+    test_dataset = test_causal_model.generate_counterfactual_dataset(
+        10000, intervention_id, batch_size, device="cuda:0", sampler=input_sampler
+    )
 
-    # eval_labels = []
-    # eval_preds = []
-    # with torch.no_grad():
-    #     epoch_iterator = tqdm(DataLoader(test_dataset, batch_size), desc=f"Test")
-    #     for step, batch in enumerate(epoch_iterator):
-    #         for k, v in batch.items():
-    #             if v is not None and isinstance(v, torch.Tensor):
-    #                 batch[k] = v.to("cuda")
-    #         batch["input_ids"] = batch["input_ids"].unsqueeze(1)
-    #         batch["source_input_ids"] = batch["source_input_ids"].unsqueeze(2)
-    #         if batch["intervention_id"][0] == 2:
-    #             _, counterfactual_outputs = intervenable(
-    #                 {"inputs_embeds": batch["input_ids"]},
-    #                 [
-    #                     {"inputs_embeds": batch["source_input_ids"][:, 0]},
-    #                     {"inputs_embeds": batch["source_input_ids"][:, 1]},
-    #                 ],
-    #                 {
-    #                     "sources->base": (
-    #                         [[[0]] * batch_size, [[0]] * batch_size],
-    #                         [[[0]] * batch_size, [[0]] * batch_size],
-    #                     )
-    #                 },
-    #                 subspaces=[
-    #                     [[_ for _ in range(0, embedding_dim * 2)]] * batch_size,
-    #                     [[_ for _ in range(embedding_dim * 2, embedding_dim * 4)]]
-    #                     * batch_size,
-    #                 ],
-    #             )
-    #         elif batch["intervention_id"][0] == 0:
-    #             _, counterfactual_outputs = intervenable(
-    #                 {"inputs_embeds": batch["input_ids"]},
-    #                 [{"inputs_embeds": batch["source_input_ids"][:, 0]}, None],
-    #                 {
-    #                     "sources->base": (
-    #                         [[[0]] * batch_size, None],
-    #                         [[[0]] * batch_size, None],
-    #                     )
-    #                 },
-    #                 subspaces=[
-    #                     [[_ for _ in range(0, embedding_dim * 2)]] * batch_size,
-    #                     None,
-    #                 ],
-    #             )
-    #         elif batch["intervention_id"][0] == 1:
-    #             _, counterfactual_outputs = intervenable(
-    #                 {"inputs_embeds": batch["input_ids"]},
-    #                 [None, {"inputs_embeds": batch["source_input_ids"][:, 0]}],
-    #                 {
-    #                     "sources->base": (
-    #                         [None, [[0]] * batch_size],
-    #                         [None, [[0]] * batch_size],
-    #                     )
-    #                 },
-    #                 subspaces=[
-    #                     None,
-    #                     [[_ for _ in range(embedding_dim * 2, embedding_dim * 4)]]
-    #                     * batch_size,
-    #                 ],
-    #             )
-    #         eval_labels += [batch["labels"]]
-    #         eval_preds += [torch.argmax(counterfactual_outputs[0], dim=1)]
-    # print(classification_report(torch.cat(eval_labels).cpu(), torch.cat(eval_preds).cpu()))
+    eval_labels = []
+    eval_preds = []
+    with torch.no_grad():
+        epoch_iterator = tqdm(DataLoader(test_dataset, batch_size), desc=f"Test")
+        for step, batch in enumerate(epoch_iterator):
+            for k, v in batch.items():
+                if v is not None and isinstance(v, torch.Tensor):
+                    batch[k] = v.to("cuda")
+            batch["input_ids"] = batch["input_ids"].unsqueeze(1)
+            batch["source_input_ids"] = batch["source_input_ids"].unsqueeze(2)
+            if batch["intervention_id"][0] == 2:
+                _, counterfactual_outputs = intervenable(
+                    {"inputs_embeds": batch["input_ids"]},
+                    [
+                        {"inputs_embeds": batch["source_input_ids"][:, 0]},
+                        {"inputs_embeds": batch["source_input_ids"][:, 1]},
+                    ],
+                    {
+                        "sources->base": (
+                            [[[0]] * batch_size, [[0]] * batch_size],
+                            [[[0]] * batch_size, [[0]] * batch_size],
+                        )
+                    },
+                    subspaces=[
+                        [[_ for _ in range(0, embedding_dim * 2)]] * batch_size,
+                        [[_ for _ in range(embedding_dim * 2, embedding_dim * 4)]]
+                        * batch_size,
+                    ],
+                )
+            elif batch["intervention_id"][0] == 0:
+                _, counterfactual_outputs = intervenable(
+                    {"inputs_embeds": batch["input_ids"]},
+                    [{"inputs_embeds": batch["source_input_ids"][:, 0]}, None],
+                    {
+                        "sources->base": (
+                            [[[0]] * batch_size, None],
+                            [[[0]] * batch_size, None],
+                        )
+                    },
+                    subspaces=[
+                        [[_ for _ in range(0, embedding_dim * 2)]] * batch_size,
+                        None,
+                    ],
+                )
+            elif batch["intervention_id"][0] == 1:
+                _, counterfactual_outputs = intervenable(
+                    {"inputs_embeds": batch["input_ids"]},
+                    [None, {"inputs_embeds": batch["source_input_ids"][:, 0]}],
+                    {
+                        "sources->base": (
+                            [None, [[0]] * batch_size],
+                            [None, [[0]] * batch_size],
+                        )
+                    },
+                    subspaces=[
+                        None,
+                        [[_ for _ in range(embedding_dim * 2, embedding_dim * 4)]]
+                        * batch_size,
+                    ],
+                )
+            eval_labels += [batch["labels"]]
+            eval_preds += [torch.argmax(counterfactual_outputs[0], dim=1)]
+    print(classification_report(torch.cat(eval_labels).cpu(), torch.cat(eval_preds).cpu()))
 
 if __name__ =="__main__":
     main()
