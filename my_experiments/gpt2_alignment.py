@@ -109,7 +109,6 @@ def get_predicted_label(model, tokenizer, prompt, max_length):
         top_p=0.95,
     )
     generated_text = tokenizer.decode(final_outputs[0], skip_special_tokens=True)
-    print(generated_text)
     return generated_text[len(prompt):].strip()
 
 def eval_finetuned_gpt2(num_examples=100):
@@ -118,7 +117,7 @@ def eval_finetuned_gpt2(num_examples=100):
     tokenizer = load_tokenizer(model_path)
     _ = model.eval()
     prompts, labels, _ = generate_sum_examples(num_examples)
-    max_len=9
+    max_len=2
     count = 0
     for prompt, label in zip(prompts, labels):
         pred_label = get_predicted_label(model, tokenizer, prompt, max_len)
