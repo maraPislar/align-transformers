@@ -255,35 +255,40 @@ def intervention_id(intervention):
     if "P" in intervention:
         return 0
 
-def main():
+def train_gpt2(causal_model, n_examples):
+    _, tokenizer, gpt2 = pyvene.create_gpt2_lm()
+    tokenizer.pad_token = tokenizer.eos_token
+    _ = gpt2.to("cuda")
 
-    # _, tokenizer, gpt2 = pyvene.create_gpt2_lm()
-    # tokenizer.pad_token = tokenizer.eos_token
-    # _ = gpt2.to("cuda")
-
-    # train_file_path = "/gpfs/home1/mpislar/align-transformers/my_experiments/sum_training_data/training_sums.txt"
+    train_file_path = "/gpfs/home1/mpislar/align-transformers/my_experiments/sum_training_data/training_sums.txt"
 
     # generate data for training gpt2
-    n_examples = 1280000
-    causal_model = causal_model_1()
-    # inputs, labels = causal_model.generate_factual_dataset(n_examples, input_sampler)
-    # generate_file(train_file_path, inputs, labels)
+    inputs, labels = causal_model.generate_factual_dataset(n_examples, input_sampler)
+    generate_file(train_file_path, inputs, labels)
 
     # train gpt2 on summing three numbers
-    # output_dir = "/gpfs/home1/mpislar/align-transformers/result/"
-    # overwrite_output_dir = False
-    # batch_size = 64
-    # num_train_epochs = 70
+    output_dir = "/gpfs/home1/mpislar/align-transformers/result/"
+    overwrite_output_dir = False
+    batch_size = 64
+    num_train_epochs = 70
 
-    # train(
-    #     train_file_path=train_file_path,
-    #     model=gpt2,
-    #     tokenizer=tokenizer,
-    #     output_dir=output_dir,
-    #     overwrite_output_dir=overwrite_output_dir,
-    #     batch_size=batch_size,
-    #     num_train_epochs=num_train_epochs
-    # )
+    train(
+        train_file_path=train_file_path,
+        model=gpt2,
+        tokenizer=tokenizer,
+        output_dir=output_dir,
+        overwrite_output_dir=overwrite_output_dir,
+        batch_size=batch_size,
+        num_train_epochs=num_train_epochs
+    )
+
+def main():
+
+    n_examples = 1280000
+    causal_model = causal_model_1()
+
+    # train gpt2
+    # train_gpt2(causal_model, n_examples)
 
     # load the trained model
     model_path = "/gpfs/home1/mpislar/align-transformers/result/"
