@@ -16,9 +16,9 @@ def generate_sum_examples(num_examples=100):
         num2 = random.randint(1, 10)
         num3 = random.randint(1, 10)
 
-        prompt = f"{num1}+{num2}+{num3}="
+        prompt = f"Calculate {num1} + {num2} + {num3} = "
         answer = str(num1 + num2 + num3)
-        full_text.append(f"{num1}+{num2}+{num3}=" + str(answer))
+        full_text.append(f"{prompt}{answer}")
 
         prompts.append(prompt)
         answers.append(answer)
