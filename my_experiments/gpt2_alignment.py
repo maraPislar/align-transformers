@@ -17,7 +17,7 @@ def generate_sum_examples(num_examples=100):
 
         prompt = f"Calculate {num1}+{num2}+{num3}="
         answer = str(num1 + num2 + num3)
-        full_text.append(f"{num1}+{num2}+{num3}=" + str(answer))
+        full_text.append(f"Calculate {num1}+{num2}+{num3}=" + str(answer))
 
         prompts.append(prompt)
         answers.append(answer)
@@ -130,10 +130,10 @@ def main():
 
     train_file_path = "/gpfs/home1/mpislar/align-transformers/my_experiments/sum_training_data/training_sums.txt"
 
-    generate_file(train_file_path, 12800)
+    generate_file(train_file_path, 128000)
 
     output_dir = "/gpfs/home1/mpislar/align-transformers/result/"
-    overwrite_output_dir = False
+    overwrite_output_dir = True
     per_device_train_batch_size = 64
     num_train_epochs = 10
     save_steps = 500
@@ -149,7 +149,7 @@ def main():
         save_steps=save_steps
     )
 
-    eval_finetuned_gpt2(100)
+    eval_finetuned_gpt2(1000)
 
 if __name__ =="__main__":
     main()
