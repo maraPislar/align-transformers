@@ -1,9 +1,13 @@
+import sys, os
+sys.path.append(os.path.join('..', '..'))
+
 import pyvene
 from transformers import Trainer, TrainingArguments
 from transformers import TextDataset, DataCollatorForLanguageModeling
 from transformers import GPT2LMHeadModel, GPT2Tokenizer
 from sklearn.metrics import classification_report
-from pyvene import CausalModel
+# from pyvene import CausalModel
+from pyvene.data_generators.causal_model import CausalModel
 import numpy as np
 from tqdm import tqdm, trange
 import torch
@@ -348,8 +352,13 @@ def main():
 
     n_examples = 12800
     batch_size = 64
+
     train_dataset = causal_model.generate_counterfactual_dataset(
-        n_examples, intervention_id, batch_size, sampler=input_sampler, inputFunction=tokenizePrompt
+        n_examples,
+        intervention_id,
+        batch_size,
+        sampler=input_sampler,
+        inputFunction=tokenizePrompt
     )
 
     # train DAS
