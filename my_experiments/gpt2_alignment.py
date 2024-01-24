@@ -92,7 +92,7 @@ def load_tokenizer(tokenizer_path):
     return tokenizer
 
 
-def generate_text(model, tokenizer, prompt, label, max_length):
+def get_predicted_label(model, tokenizer, prompt, max_length):
     ids = tokenizer.encode(f'{prompt}', return_tensors='pt')
     final_outputs = model.generate(
         ids,
@@ -102,8 +102,8 @@ def generate_text(model, tokenizer, prompt, label, max_length):
         top_k=50,
         top_p=0.95,
     )
-    print(tokenizer.decode(final_outputs[0], skip_special_tokens=True))
-    print(f"True output: {prompt}{label}")
+    generated_text = tokenizer.decode(final_outputs[0], skip_special_tokens=True)
+    return generated_text[len(prompt):].strip()
 
 def eval_finetuned_gpt2(num_examples=100):
     model_path = "/gpfs/home1/mpislar/align-transformers/result/"
@@ -112,8 +112,15 @@ def eval_finetuned_gpt2(num_examples=100):
     _ = model.eval()
     prompts, labels, _ = generate_sum_examples(num_examples)
     max_len=1
+    count = 0
     for prompt, label in zip(prompts, labels):
-        generate_text(model, tokenizer, prompt, label, max_len)
+        pred_label = get_predicted_label(model, tokenizer, prompt, max_len)
+        if pred_label == label:
+            count += 1
+    if count > 0:
+        print(f"Accuracy is {count/num_examples}")
+    else:
+        print("Accuracy is 0.")
 
 def main():
 
@@ -123,12 +130,12 @@ def main():
 
     train_file_path = "/gpfs/home1/mpislar/align-transformers/my_experiments/sum_training_data/training_sums.txt"
 
-    generate_file(train_file_path)
+    generate_file(train_file_path, 12800)
 
     output_dir = "/gpfs/home1/mpislar/align-transformers/result/"
     overwrite_output_dir = False
-    per_device_train_batch_size = 8
-    num_train_epochs = 5
+    per_device_train_batch_size = 64
+    num_train_epochs = 10
     save_steps = 500
 
     train(
@@ -142,7 +149,7 @@ def main():
         save_steps=save_steps
     )
 
-    eval_finetuned_gpt2(5)
+    eval_finetuned_gpt2(100)
 
 if __name__ =="__main__":
     main()
