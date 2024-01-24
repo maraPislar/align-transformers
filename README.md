@@ -2,14 +2,19 @@
 <div align="center">
   <h1 align="center"><img src="https://i.ibb.co/BNkhQH3/pyvene-logo.png"></h1>
   <a href="https://nlp.stanford.edu/~wuzhengx/"><strong>Library Paper and Doc Are Forthcoming »</strong></a>
-</div>
+</div>     
 
-<a href="https://pypi.org/project/pyvene/"><img src="https://img.shields.io/pypi/v/pyvene?color=red"></img></a>
+<br />
+<a href="https://pypi.org/project/pyvene/"><img src="https://img.shields.io/pepy/dt/pyvene?color=green"></img></a>
+<a href="https://pypi.org/project/pyvene/"><img src="https://img.shields.io/pypi/v/pyvene?color=red"></img></a> 
+<a href="https://pypi.org/project/pyvene/"><img src="https://img.shields.io/pypi/l/pyvene?color=blue"></img></a>
 
-# **Use _Activation Intervention_ to Interpret _Causal Mechanism_ of Model**
-**pyvene** supports customizable interventions on different neural architectures (e.g., RNN or Transformers). It supports complex intervention schemas (e.g., parallel or serialized interventions) and a wide range of intervention modes (e.g., static or trained interventions) at scale to gain interpretability insights.
+*This is a beta release (public testing).*
 
-**Getting Started:** [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/stanfordnlp/pyvene/blob/main/tutorials/basic_tutorials/Basic_Intervention.ipynb) [**_pyvene_ 101**]  
+# A Library for _Understanding_ and _Improving_ PyTorch Models via Interventions
+Interventions on model-internal states are fundamental operations in many areas of AI, including model editing, steering, robustness, and interpretability. To facilitate such research, we introduce **pyvene**, an open-source Python library that supports customizable interventions on a range of different PyTorch modules. **pyvene** supports complex intervention schemes with an intuitive configuration format, and its interventions can be static or include trainable parameters.
+
+**Getting Started:** [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/stanfordnlp/pyvene/blob/main/pyvene_101.ipynb) [**Main _pyvene_ 101**]  
 
 ## Installation
 ```bash
@@ -19,55 +24,39 @@ pip install pyvene
 ## _Wrap_ , _Intervene_ and _Share_
 You can intervene with supported models as,
 ```python
-import pyvene
-from pyvene import IntervenableRepresentationConfig, IntervenableConfig, IntervenableModel
+import torch
+import pyvene as pv
 
-# provided wrapper for huggingface gpt2 model
-_, tokenizer, gpt2 = pyvene.create_gpt2()
+_, tokenizer, gpt2 = pv.create_gpt2()
 
-# turn gpt2 into intervenable_gpt2
-intervenable_gpt2 = IntervenableModel(
-    intervenable_config = IntervenableConfig(
-        intervenable_representations=[
-            IntervenableRepresentationConfig(
-                0,            # intervening layer 0
-                "mlp_output", # intervening mlp output
-                "pos",        # intervening based on positional indices of tokens
-                1             # maximally intervening one token
-            ),
-        ],
-    ), 
-    model = gpt2
+pv_gpt2 = pv.IntervenableModel({
+    "source_representation": torch.zeros(gpt2.config.n_embd)
+}, model=gpt2)
+
+orig_outputs, intervened_outputs = pv_gpt2(
+    base = tokenizer("The capital of Spain is", return_tensors="pt"), 
+    unit_locations={"base": 3}
 )
-
-# intervene base with sources on the fourth token.
-original_outputs, intervened_outputs = intervenable_gpt2(
-    tokenizer("The capital of Spain is", return_tensors="pt"),
-    [tokenizer("The capital of Italy is", return_tensors="pt")],
-    {"sources->base": ([[[4]]], [[[4]]])}
-)
-original_outputs.last_hidden_state - intervened_outputs.last_hidden_state
+print(intervened_outputs.last_hidden_state - orig_outputs.last_hidden_state)
 ```
 which returns,
-
 ```
 tensor([[[ 0.0000,  0.0000,  0.0000,  ...,  0.0000,  0.0000,  0.0000],
          [ 0.0000,  0.0000,  0.0000,  ...,  0.0000,  0.0000,  0.0000],
          [ 0.0000,  0.0000,  0.0000,  ...,  0.0000,  0.0000,  0.0000],
-         [ 0.0000,  0.0000,  0.0000,  ...,  0.0000,  0.0000,  0.0000],
-         [ 0.0008, -0.0078, -0.0066,  ...,  0.0007, -0.0018,  0.0060]]])
+         [ 0.0483, -0.1212, -0.2816,  ...,  0.1958,  0.0830,  0.0784],
+         [ 0.0519,  0.2547, -0.1631,  ...,  0.0050, -0.0453, -0.1624]]])
 ```
-showing that we have causal effects only on the last token as expected. You can share your interventions through Huggingface with others with a single call,
+You can share your interventions through Huggingface with others with a single call,
 ```python
-intervenable_gpt2.save(
+pv_gpt2.save(
     save_directory="./your_gpt2_mounting_point/",
     save_to_hf_hub=True,
-    hf_repo_name="your_gpt2_mounting_point",
+    hf_repo_name="your_gpt2_mounting_point"
 )
 ```
-We see interventions are knobs that can mount on models. And people can share their knobs with others to share knowledge about how to steer models. You can try this at [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/stanfordnlp/pyvene/blob/main/tutorials/basic_tutorials/Load_Save_and_Share_Interventions.ipynb) [**Intervention Sharing**]  
 
-You can also use the `intervenable_gpt2` just like a regular torch model component inside another model, or another pipeline as,
+You can also use the `pv_gpt2` just like a regular torch model component inside another model, or another pipeline as,
 ```py
 import torch
 import torch.nn as nn
@@ -76,7 +65,7 @@ from typing import List, Optional, Tuple, Union, Dict
 class ModelWithIntervenables(nn.Module):
     def __init__(self):
         super(ModelWithIntervenables, self).__init__()
-        self.intervenable_gpt2 = intervenable_gpt2
+        self.pv_gpt2 = pv_gpt2
         self.relu = nn.ReLU()
         self.fc = nn.Linear(768, 1)
         # Your other downstream components go here
@@ -89,18 +78,55 @@ class ModelWithIntervenables(nn.Module):
         activations_sources: Optional[Dict] = None,
         subspaces: Optional[List] = None,
     ):
-        _, counterfactual_x = self.intervenable_gpt2(
+        _, counterfactual_x = self.pv_gpt2(
             base,
             sources,
             unit_locations,
             activations_sources,
             subspaces
         )
-        counterfactual_x = counterfactual_x.last_hidden_state
-        
-        counterfactual_x = self.relu(counterfactual_x)
-        counterfactual_x = self.fc(counterfactual_x)
-        return counterfactual_x
+        return self.fc(self.relu(counterfactual_x.last_hidden_state))
+```
+
+## Complex _Intervention Schema_ as an _Object_
+One key abstraction that **pyvene** provides is the encapsulation of the intervention schema. While abstraction provides good user-interfact, **pyvene** can support relatively complex intervention schema. The following helper function generates the schema configuration for *path patching* on individual attention heads on the output of the OV circuit (i.e., analyzing causal effect of each individual component):
+```py
+import pyvene as pv
+
+def path_patching_config(
+    layer, last_layer, 
+    component="head_attention_value_output", unit="h.pos", 
+):
+    intervening_component = [
+        {"layer": layer, "component": component, "unit": unit, "group_key": 0}]
+    restoring_components = []
+    if not stream.startswith("mlp_"):
+        restoring_components += [
+            {"layer": layer, "component": "mlp_output", "group_key": 1}]
+    for i in range(layer+1, last_layer):
+        restoring_components += [
+            {"layer": i, "component": "attention_output", "group_key": 1}
+            {"layer": i, "component": "mlp_output", "group_key": 1}
+        ]
+    intervenable_config = IntervenableConfig(intervening_component + restoring_components)
+    return intervenable_config
+```
+then you can wrap the config generated by this function to a model. And after you have done your intervention, you can share your path patching with others,
+```py
+_, tokenizer, gpt2 = pv.create_gpt2()
+
+pv_gpt2 = pv.IntervenableModel(
+    path_patching_config(4, gpt2.config.n_layer), 
+    model=gpt2
+)
+# saving the path
+pv_gpt2.save(
+    save_directory="./your_gpt2_path/"
+)
+# loading the path
+pv_gpt2 = pv.IntervenableModel.load(
+    "./tmp/",
+    model=gpt2)
 ```
 
 
@@ -108,12 +134,34 @@ class ModelWithIntervenables(nn.Module):
 
 | **Level** |  **Tutorial** |  **Run in Colab** |  **Description** |
 | --- | -------------  |  -------------  |  -------------  | 
-| Beginner |  [**Getting Started**](tutorials/basic_tutorials/Basic_Intervention.ipynb) | [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/stanfordnlp/pyvene/blob/main/tutorials/basic_tutorials/Basic_Intervention.ipynb)  |  Introduces basic static intervention on factual recall examples |
-| Beginner | [**Intervened Model Generation**](tutorials/advanced_tutorials/Intervened_Model_Generation.ipynb) | [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/stanfordnlp/pyvene/blob/main/tutorials/advanced_tutorials/Intervened_Model_Generation.ipynb) | Shows how to intervene a model during generation |
-| Intermediate | [**Intervene Your Local Models**](tutorials/basic_tutorials/Add_New_Model_Type.ipynb) | [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/stanfordnlp/pyvene/blob/main/tutorials/basic_tutorials/Add_New_Model_Type.ipynb) | Illustrates how to run this library with your own models |
+| Beginner |  [**pyvene 101**](pyvene_101.ipynb) | [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/stanfordnlp/pyvene/blob/main/pyvene_101.ipynb)  |  Introduce you to the basics of pyvene |
+| Intermediate | [**ROME Causal Tracing**](tutorials/advanced_tutorials/Causal_Tracing.ipynb) | [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/stanfordnlp/pyvene/blob/main/tutorials/advanced_tutorials/Causal_Tracing.ipynb) | Reproduce ROME's Results on Factual Associations with GPT2-XL |
+| Intermediate | [**Intervention v.s. Probing**](tutorials/advanced_tutorials/Probing_Gender.ipynb) | [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/stanfordnlp/pyvene/blob/main/tutorials/advanced_tutorials/Probing_Gender.ipynb) | Illustrates how to run trainable interventions and probing with pythia-6.9B |
 | Advanced | [**Trainable Interventions for Causal Abstraction**](tutorials/advanced_tutorials/DAS_Main_Introduction.ipynb) | [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/stanfordnlp/pyvene/blob/main/tutorials/advanced_tutorials/DAS_Main_Introduction.ipynb) | Illustrates how to train an intervention to discover causal mechanisms of a neural model |
 
-## Causal Abstraction: From Interventions to Gain Interpretability Insights
+## Contributing to This Library
+Please see [our guidelines](CONTRIBUTING.md) about how to contribute to this repository.         
+
+*Pull requests, bug reports, and all other forms of contribution are welcomed and highly encouraged!* :octocat:  
+
+### Other Ways of Installation
+
+**Method 2: Install from the Repo**
+```bash
+pip install git+https://github.com/stanfordnlp/pyvene.git
+```
+
+**Method 3: Clone and Import**
+```bash
+git clone https://github.com/stanfordnlp/pyvene.git
+```
+and in parallel folder, import to your project as,
+```python
+from pyvene import pyvene
+_, tokenizer, gpt2 = pyvene.create_gpt2()
+```
+
+## A Little Guide for Causal Abstraction: From Interventions to Gain Interpretability Insights
 Basic interventions are fun but we cannot make any causal claim systematically. To gain actual interpretability insights, we want to measure the counterfactual behaviors of a model in a data-driven fashion. In other words, if the model responds systematically to your interventions, then you start to associate certain regions in the network with a high-level concept. We also call this alignment search process with model internals.
 
 ### Understanding Causal Mechanisms with Static Interventions
@@ -171,28 +219,6 @@ intervenable.train(
 ```
 where you need to pass in a trainable dataset, and your customized loss and metrics function. The trainable interventions can later be saved on to your disk. You can also use `intervenable.evaluate()` your interventions in terms of customized objectives.
 
-## Contributing to This Library
-Please see [our guidelines](CONTRIBUTING.md) about how to contribute to this repository.         
-
-*Pull requests, bug reports, and all other forms of contribution are welcomed and highly encouraged!* :octocat:  
-
-### Other Ways of Installation
-
-**Method 2: Install from the Repo**
-```bash
-pip install git+https://github.com/stanfordnlp/pyvene.git
-```
-
-**Method 3: Clone and Import**
-```bash
-git clone https://github.com/stanfordnlp/pyvene.git
-```
-and in parallel folder, import to your project as,
-```python
-from pyvene import pyvene
-_, tokenizer, gpt2 = pyvene.create_gpt2()
-```
-
 ## Related Works in Discovering Causal Mechanism of LLMs
 If you would like to read more works on this area, here is a list of papers that try to align or discover the causal mechanisms of LLMs. 
 - [Causal Abstractions of Neural Networks](https://arxiv.org/abs/2106.02997): This paper introduces interchange intervention (a.k.a. activation patching or causal scrubbing). It tries to align a causal model with the model's representations.
@@ -202,6 +228,9 @@ If you would like to read more works on this area, here is a list of papers that
 - [Interpretability in the Wild: a Circuit for Indirect Object Identification in GPT-2 small](https://arxiv.org/abs/2211.00593): Path patching plus posthoc representation study to uncover a circuit that solves the indirect object identification (IOI) task.
 - [Rigorously Assessing Natural Language Explanations of Neurons](https://arxiv.org/abs/2309.10312): Using causal abstraction to validate [neuron explanations released by OpenAI](https://openai.com/research/language-models-can-explain-neurons-in-language-models).
 
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=stanfordnlp/pyvene&type=Date)](https://star-history.com/#stanfordnlp/pyvene&Date)
 
 ## Citation
 Library paper is forthcoming. For now, if you use this repository, please consider to cite relevant papers:

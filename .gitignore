@@ -7,9 +7,13 @@ playground.ipynb
 */*/.cache_dir
 results*/
 logs
+_hidden_local_dev*
+tmp_dir_new*/
+tmp/
 notebooks/figures/
 *.tsv
 *.csv
+*.pdf
 *.out
 *results/
 *.sh

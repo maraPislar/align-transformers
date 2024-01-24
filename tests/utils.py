@@ -33,15 +33,11 @@ else:
 
 from pyvene.models.basic_utils import embed_to_distrib, top_vals, format_token
 from pyvene.models.configuration_intervenable_model import (
-    IntervenableRepresentationConfig,
+    RepresentationConfig,
     IntervenableConfig,
 )
 from pyvene.models.intervenable_base import IntervenableModel
-from pyvene.models.interventions import (
-    VanillaIntervention,
-    RotatedSpaceIntervention,
-    LowRankRotatedSpaceIntervention,
-)
+from pyvene.models.interventions import *
 from pyvene.models.mlp.modelings_mlp import MLPConfig
 from pyvene.models.mlp.modelings_intervenable_mlp import create_mlp_classifier
 from pyvene.models.gpt2.modelings_intervenable_gpt2 import create_gpt2_lm

@@ -37,7 +37,32 @@ class InterventionState(object):
     def __str__(self):
         return json.dumps(self.state_dict, indent=4)
 
+def broadcast_tensor_v1(x, target_shape):
+    # Ensure the last dimension of target_shape matches x's size
+    if target_shape[-1] != x.shape[-1]:
+        raise ValueError("The last dimension of target_shape must match the size of x")
 
+    # Create a shape for reshaping x that is compatible with target_shape
+    reshape_shape = [1] * (len(target_shape) - 1) + [x.shape[-1]]
+
+    # Reshape x and then broadcast it
+    x_reshaped = x.view(*reshape_shape)
+    broadcasted_x = x_reshaped.expand(*target_shape)
+    return broadcasted_x
+    
+def broadcast_tensor_v2(x, target_shape):
+    # Ensure that target_shape has at least one dimension
+    if len(target_shape) < 1:
+        raise ValueError("Target shape must have at least one dimension")
+
+    # Extract the first n-1 dimensions from the target shape
+    target_dims_except_last = target_shape[:-1]
+
+    # Broadcast the input tensor x to match the target_dims_except_last and keep its last dimension
+    broadcasted_x = x.expand(*target_dims_except_last, x.shape[-1])
+
+    return broadcasted_x
+    
 def _do_intervention_by_swap(
     base,
     source,
@@ -50,6 +75,16 @@ def _do_intervention_by_swap(
     """The basic do function that guards interventions"""
     if mode == "collect":
         assert source is None
+    else:
+        # auto broadcast
+        if base.shape != source.shape:
+            try:
+                source = broadcast_tensor_v1(source, base.shape)
+            except:
+                raise ValueError(
+                    f"source with shape {source.shape} cannot be broadcasted "
+                    f"into base with shape {base.shape}."
+                )
     # interchange
     if use_fast:
         if subspaces is not None:
@@ -88,17 +123,20 @@ def _do_intervention_by_swap(
         collect_base = []
         for example_i in range(len(subspaces)):
             # render subspace as column indices
-            sel_subspace_indices = []
-            for subspace in subspaces[example_i]:
-                sel_subspace_indices.extend(
-                    [
-                        i
-                        for i in range(
-                            subspace_partition[subspace][0],
-                            subspace_partition[subspace][1],
-                        )
-                    ]
-                )
+            if subspace_partition is None:
+                sel_subspace_indices = subspaces[example_i]
+            else:
+                sel_subspace_indices = []
+                for subspace in subspaces[example_i]:
+                    sel_subspace_indices.extend(
+                        [
+                            i
+                            for i in range(
+                                subspace_partition[subspace][0],
+                                subspace_partition[subspace][1],
+                            )
+                        ]
+                    )
             if mode == "interchange":
                 base[example_i, ..., sel_subspace_indices] = source[
                     example_i, ..., sel_subspace_indices

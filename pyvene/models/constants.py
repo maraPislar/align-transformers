@@ -3,6 +3,7 @@ CONST_VALID_INTERVENABLE_UNIT = ["pos", "h", "h.pos", "t"]
 
 CONST_INPUT_HOOK = "register_forward_pre_hook"
 CONST_OUTPUT_HOOK = "register_forward_hook"
+CONST_GRAD_HOOK = "register_hook"
 
 
 CONST_TRANSFORMER_TOPOLOGICAL_ORDER = [
@@ -14,6 +15,7 @@ CONST_TRANSFORMER_TOPOLOGICAL_ORDER = [
     "value_output",
     "head_value_output",
     "attention_input",
+    "attention_weight",
     "head_attention_value_output",
     "attention_value_output",
     "attention_output",
@@ -25,6 +27,12 @@ CONST_TRANSFORMER_TOPOLOGICAL_ORDER = [
     "mlp_activation",
     "mlp_output",
     "block_output",
+    # special keys for backpack model
+    "sense_block_output",
+    "sense_mlp_input",
+    "sense_mlp_activation",
+    "sense_mlp_output",
+    "sense_output",
 ]
 
 
