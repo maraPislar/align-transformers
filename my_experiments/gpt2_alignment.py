@@ -282,6 +282,10 @@ def train_gpt2(causal_model, n_examples):
         num_train_epochs=num_train_epochs
     )
 
+def tokenizePrompt(prompt):
+    tokenizer = load_tokenizer("/gpfs/home1/mpislar/align-transformers/result/")
+    return tokenizer.encode(prompt, return_tensors='pt')
+
 def main():
 
     n_examples = 1280000
@@ -345,7 +349,7 @@ def main():
     n_examples = 12800
     batch_size = 64
     train_dataset = causal_model.generate_counterfactual_dataset(
-        n_examples, intervention_id, batch_size, sampler=input_sampler
+        n_examples, intervention_id, batch_size, sampler=input_sampler, inputFunction=tokenizePrompt
     )
 
     # train DAS
@@ -446,7 +450,7 @@ def main():
     # test DAS
 
     test_dataset = test_causal_model.generate_counterfactual_dataset(
-        10000, intervention_id, batch_size, device="cuda:0", sampler=input_sampler
+        10000, intervention_id, batch_size, device="cuda:0", sampler=input_sampler, inputFunction=tokenizePrompt
     )
 
     eval_labels = []
