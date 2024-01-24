@@ -146,7 +146,7 @@ def main():
 
     output_dir = "/gpfs/home1/mpislar/align-transformers/result/"
     overwrite_output_dir = False
-    per_device_train_batch_size = 1024
+    batch_size = 1024
     num_train_epochs = 10
     save_steps = 500
 
@@ -156,7 +156,7 @@ def main():
         tokenizer=tokenizer,
         output_dir=output_dir,
         overwrite_output_dir=overwrite_output_dir,
-        per_device_train_batch_size=per_device_train_batch_size,
+        batch_size=batch_size,
         num_train_epochs=num_train_epochs,
         save_steps=save_steps
     )
