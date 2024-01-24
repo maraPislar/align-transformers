@@ -1,15 +1,23 @@
 import pyvene
-from pyvene import IntervenableRepresentationConfig, IntervenableConfig, IntervenableModel
-import random
 from transformers import Trainer, TrainingArguments
 from transformers import TextDataset, DataCollatorForLanguageModeling
-from transformers import PreTrainedTokenizerFast, GPT2LMHeadModel, GPT2TokenizerFast, GPT2Tokenizer
+from transformers import GPT2LMHeadModel, GPT2Tokenizer
 from sklearn.metrics import classification_report
 from pyvene import CausalModel
 import numpy as np
-from datasets import Dataset
+from tqdm import tqdm, trange
 import torch
+from torch.utils.data import DataLoader
+import random
 
+from pyvene import (
+    IntervenableModel,
+    RotatedSpaceIntervention,
+    IntervenableRepresentationConfig,
+    IntervenableConfig,
+)
+
+# generate the prompts given the inputs and outputs generated with the causal model
 def generate_sum_examples(inputs, labels):
     prompts = []
     answers = []
@@ -24,12 +32,14 @@ def generate_sum_examples(inputs, labels):
 
     return prompts, answers, full_text
 
+# sample such numbers to be fed into the task
 def input_sampler():
     A = randNum()
     B = randNum()
     C = randNum()
     return {"X":A, "Y":B, "Z":C}
 
+# save all the data in a file for easier training of gpt2
 def generate_file(file_path, inputs, labels):
 
     _, _, data = generate_sum_examples(inputs, labels)
@@ -39,6 +49,8 @@ def generate_file(file_path, inputs, labels):
         for string in data:
             file.write(string + '\n')
 
+######## Helper functions ########
+
 def load_dataset(file_path, tokenizer, block_size = 128):
     dataset = TextDataset(
         tokenizer = tokenizer,
@@ -47,7 +59,6 @@ def load_dataset(file_path, tokenizer, block_size = 128):
     )
     return dataset
 
-
 def load_data_collator(tokenizer, mlm = False):
     data_collator = DataCollatorForLanguageModeling(
         tokenizer=tokenizer, 
@@ -55,15 +66,25 @@ def load_data_collator(tokenizer, mlm = False):
     )
     return data_collator
 
+def load_model(model_path):
+    model = GPT2LMHeadModel.from_pretrained(model_path)
+    return model
 
+
+def load_tokenizer(tokenizer_path):
+    tokenizer = GPT2Tokenizer.from_pretrained(tokenizer_path)
+    return tokenizer
+
+################ End ################
+
+# training function for gpt2
 def train(train_file_path,
           model,
           tokenizer,
           output_dir,
           overwrite_output_dir,
           batch_size,
-          num_train_epochs,
-          save_steps):
+          num_train_epochs):
   
     train_dataset = load_dataset(train_file_path, tokenizer)
     data_collator = load_data_collator(tokenizer)
@@ -93,16 +114,7 @@ def train(train_file_path,
     _ = trainer.train()
     trainer.save_model()
 
-def load_model(model_path):
-    model = GPT2LMHeadModel.from_pretrained(model_path)
-    return model
-
-
-def load_tokenizer(tokenizer_path):
-    tokenizer = GPT2Tokenizer.from_pretrained(tokenizer_path)
-    return tokenizer
-
-
+#
 def get_predicted_label(model, tokenizer, prompt, max_length):
     ids = tokenizer.encode(f'{prompt}', return_tensors='pt')
     final_outputs = model.generate(
@@ -117,10 +129,7 @@ def get_predicted_label(model, tokenizer, prompt, max_length):
     print(generated_text.strip())
     return generated_text[len(prompt):].strip()
 
-def eval_finetuned_gpt2(prompts, labels, num_examples=100):
-    model_path = "/gpfs/home1/mpislar/align-transformers/result/"
-    model = load_model(model_path)
-    tokenizer = load_tokenizer(model_path)
+def eval_finetuned_gpt2(model, tokenizer, prompts, labels, num_examples=100):
     _ = model.eval()
     max_len=2
     count = 0
@@ -220,6 +229,32 @@ def causal_model_3():
 
     return CausalModel(variables, values, parents, functions, pos = pos)
 
+def compute_metrics(eval_preds, eval_labels):
+    total_count = 0
+    correct_count = 0
+    for eval_pred, eval_label in zip(eval_preds, eval_labels):
+        total_count += 1
+        correct_count += eval_pred == eval_label
+    accuracy = float(correct_count) / float(total_count)
+    return {"accuracy": accuracy}
+
+
+def compute_loss(outputs, labels):
+    CE = torch.nn.CrossEntropyLoss()
+    return CE(outputs, labels)
+
+
+def batched_random_sampler(data, batch_size):
+    batch_indices = [_ for _ in range(int(len(data) / batch_size))]
+    random.shuffle(batch_indices)
+    for b_i in batch_indices:
+        for i in range(b_i * batch_size, (b_i + 1) * batch_size):
+            yield i
+
+def intervention_id(intervention):
+    if "P" in intervention:
+        return 0
+
 def main():
 
     _, tokenizer, gpt2 = pyvene.create_gpt2_lm()
@@ -228,16 +263,17 @@ def main():
 
     train_file_path = "/gpfs/home1/mpislar/align-transformers/my_experiments/sum_training_data/training_sums.txt"
 
+    # generate data for training gpt2
     n_examples = 1280000
-    causal_model = causal_model_2()
+    causal_model = causal_model_1()
     inputs, labels = causal_model.generate_factual_dataset(n_examples, input_sampler)
     generate_file(train_file_path, inputs, labels)
 
+    # train gpt2 on summing three numbers
     output_dir = "/gpfs/home1/mpislar/align-transformers/result/"
     overwrite_output_dir = False
     batch_size = 64
     num_train_epochs = 30
-    save_steps = 500
 
     train(
         train_file_path=train_file_path,
@@ -246,13 +282,231 @@ def main():
         output_dir=output_dir,
         overwrite_output_dir=overwrite_output_dir,
         batch_size=batch_size,
-        num_train_epochs=num_train_epochs,
-        save_steps=save_steps
+        num_train_epochs=num_train_epochs
     )
 
+    # load the trained model
+    model_path = "/gpfs/home1/mpislar/align-transformers/result/"
+    model = load_model(model_path)
+    tokenizer = load_tokenizer(model_path)
+
+    # generate data for testing if gpt2 has learnt the task well
     n_examples = 100
-    test_inputs, test_labels = causal_model.generate_factual_dataset(n_examples, input_sampler)
-    eval_finetuned_gpt2(test_inputs, test_labels, n_examples)
+    test_causal_model = causal_model_1()
+    test_inputs, test_labels = test_causal_model.generate_factual_dataset(n_examples, input_sampler)
+    test_inputs, test_labels, _ = generate_sum_examples(test_inputs, test_labels) # convert back to prompt
+    eval_finetuned_gpt2(model, tokenizer, test_inputs, test_labels, n_examples)
+
+    # # define intervention model
+    # intervenable_config = IntervenableConfig(
+    #     intervenable_model_type=type(model),
+    #     intervenable_representations=[
+    #         IntervenableRepresentationConfig(
+    #             0,  # layer
+    #             "block_output",  # intervention type
+    #             "pos",  # intervention unit is now aligne with tokens
+    #             1,  # max number of unit
+    #             subspace_partition=None,  # binary partition with equal sizes
+    #             intervention_link_key=0,
+    #         ),
+    #         IntervenableRepresentationConfig(
+    #             0,  # layer
+    #             "block_output",  # intervention type
+    #             "pos",  # intervention unit is now aligne with tokens
+    #             1,  # max number of unit
+    #             subspace_partition=None,  # binary partition with equal sizes,
+    #             intervention_link_key=0,
+    #         ),
+    #     ],
+    #     intervenable_interventions_type=RotatedSpaceIntervention,
+    # )
+
+    # intervenable = IntervenableModel(intervenable_config, model, use_fast=True)
+    # intervenable.set_device("cuda")
+    # intervenable.disable_model_gradients()
+
+    # epochs = 10
+    # gradient_accumulation_steps = 1
+    # total_step = 0
+    # # target_total_step = len(dataset) * epochs
+
+    # # t_total = int(len(dataset) * epochs)
+    # optimizer_params = []
+    # for k, v in intervenable.interventions.items():
+    #     optimizer_params += [{"params": v[0].rotate_layer.parameters()}]
+    #     break
+    # optimizer = torch.optim.Adam(optimizer_params, lr=0.001)
+
+    # n_examples = 12800
+    # batch_size = 64
+    # train_dataset = causal_model.generate_counterfactual_dataset(
+    #     n_examples, intervention_id, batch_size, sampler=input_sampler
+    # )
+
+    # # train DAS
+    # embedding_dim = 4
+
+    # intervenable.model.train()  # train enables drop-off but no grads
+    # print("intervention trainable parameters: ", intervenable.count_parameters())
+    # train_iterator = trange(0, int(epochs), desc="Epoch")
+
+    # for epoch in train_iterator:
+    #     epoch_iterator = tqdm(
+    #         DataLoader(
+    #             train_dataset,
+    #             batch_size=batch_size,
+    #             sampler=batched_random_sampler(train_dataset),
+    #         ),
+    #         desc=f"Epoch: {epoch}",
+    #         position=0,
+    #         leave=True,
+    #     )
+    #     for batch in epoch_iterator:
+    #         batch["input_ids"] = batch["input_ids"].unsqueeze(1)
+    #         batch["source_input_ids"] = batch["source_input_ids"].unsqueeze(2)
+    #         batch_size = batch["input_ids"].shape[0]
+    #         for k, v in batch.items():
+    #             if v is not None and isinstance(v, torch.Tensor):
+    #                 batch[k] = v.to("cuda")
+
+    #         if batch["intervention_id"][0] == 2:
+    #             _, counterfactual_outputs = intervenable(
+    #                 {"inputs_embeds": batch["input_ids"]},
+    #                 [
+    #                     {"inputs_embeds": batch["source_input_ids"][:, 0]},
+    #                     {"inputs_embeds": batch["source_input_ids"][:, 1]},
+    #                 ],
+    #                 {
+    #                     "sources->base": (
+    #                         [[[0]] * batch_size, [[0]] * batch_size],
+    #                         [[[0]] * batch_size, [[0]] * batch_size],
+    #                     )
+    #                 },
+    #                 subspaces=[
+    #                     [[_ for _ in range(0, embedding_dim * 2)]] * batch_size,
+    #                     [[_ for _ in range(embedding_dim * 2, embedding_dim * 4)]]
+    #                     * batch_size,
+    #                 ],
+    #             )
+    #         elif batch["intervention_id"][0] == 0:
+    #             _, counterfactual_outputs = intervenable(
+    #                 {"inputs_embeds": batch["input_ids"]},
+    #                 [{"inputs_embeds": batch["source_input_ids"][:, 0]}, None],
+    #                 {
+    #                     "sources->base": (
+    #                         [[[0]] * batch_size, None],
+    #                         [[[0]] * batch_size, None],
+    #                     )
+    #                 },
+    #                 subspaces=[
+    #                     [[_ for _ in range(0, embedding_dim * 2)]] * batch_size,
+    #                     None,
+    #                 ],
+    #             )
+    #         elif batch["intervention_id"][0] == 1:
+    #             _, counterfactual_outputs = intervenable(
+    #                 {"inputs_embeds": batch["input_ids"]},
+    #                 [None, {"inputs_embeds": batch["source_input_ids"][:, 0]}],
+    #                 {
+    #                     "sources->base": (
+    #                         [None, [[0]] * batch_size],
+    #                         [None, [[0]] * batch_size],
+    #                     )
+    #                 },
+    #                 subspaces=[
+    #                     None,
+    #                     [[_ for _ in range(embedding_dim * 2, embedding_dim * 4)]]
+    #                     * batch_size,
+    #                 ],
+    #             )
+    #         eval_metrics = compute_metrics(
+    #             counterfactual_outputs[0].argmax(1), batch["labels"].squeeze()
+    #         )
+
+    #         # loss and backprop
+    #         loss = compute_loss(
+    #             counterfactual_outputs[0], batch["labels"].squeeze().to(torch.long)
+    #         )
+
+    #         epoch_iterator.set_postfix({"loss": loss, "acc": eval_metrics["accuracy"]})
+
+    #         if gradient_accumulation_steps > 1:
+    #             loss = loss / gradient_accumulation_steps
+    #         loss.backward()
+    #         if total_step % gradient_accumulation_steps == 0:
+    #             optimizer.step()
+    #             intervenable.set_zero_grad()
+    #         total_step += 1
+    
+    # # test DAS
+
+    # test_dataset = test_causal_model.generate_counterfactual_dataset(
+    #     10000, intervention_id, batch_size, device="cuda:0", sampler=input_sampler
+    # )
+
+    # eval_labels = []
+    # eval_preds = []
+    # with torch.no_grad():
+    #     epoch_iterator = tqdm(DataLoader(test_dataset, batch_size), desc=f"Test")
+    #     for step, batch in enumerate(epoch_iterator):
+    #         for k, v in batch.items():
+    #             if v is not None and isinstance(v, torch.Tensor):
+    #                 batch[k] = v.to("cuda")
+    #         batch["input_ids"] = batch["input_ids"].unsqueeze(1)
+    #         batch["source_input_ids"] = batch["source_input_ids"].unsqueeze(2)
+    #         if batch["intervention_id"][0] == 2:
+    #             _, counterfactual_outputs = intervenable(
+    #                 {"inputs_embeds": batch["input_ids"]},
+    #                 [
+    #                     {"inputs_embeds": batch["source_input_ids"][:, 0]},
+    #                     {"inputs_embeds": batch["source_input_ids"][:, 1]},
+    #                 ],
+    #                 {
+    #                     "sources->base": (
+    #                         [[[0]] * batch_size, [[0]] * batch_size],
+    #                         [[[0]] * batch_size, [[0]] * batch_size],
+    #                     )
+    #                 },
+    #                 subspaces=[
+    #                     [[_ for _ in range(0, embedding_dim * 2)]] * batch_size,
+    #                     [[_ for _ in range(embedding_dim * 2, embedding_dim * 4)]]
+    #                     * batch_size,
+    #                 ],
+    #             )
+    #         elif batch["intervention_id"][0] == 0:
+    #             _, counterfactual_outputs = intervenable(
+    #                 {"inputs_embeds": batch["input_ids"]},
+    #                 [{"inputs_embeds": batch["source_input_ids"][:, 0]}, None],
+    #                 {
+    #                     "sources->base": (
+    #                         [[[0]] * batch_size, None],
+    #                         [[[0]] * batch_size, None],
+    #                     )
+    #                 },
+    #                 subspaces=[
+    #                     [[_ for _ in range(0, embedding_dim * 2)]] * batch_size,
+    #                     None,
+    #                 ],
+    #             )
+    #         elif batch["intervention_id"][0] == 1:
+    #             _, counterfactual_outputs = intervenable(
+    #                 {"inputs_embeds": batch["input_ids"]},
+    #                 [None, {"inputs_embeds": batch["source_input_ids"][:, 0]}],
+    #                 {
+    #                     "sources->base": (
+    #                         [None, [[0]] * batch_size],
+    #                         [None, [[0]] * batch_size],
+    #                     )
+    #                 },
+    #                 subspaces=[
+    #                     None,
+    #                     [[_ for _ in range(embedding_dim * 2, embedding_dim * 4)]]
+    #                     * batch_size,
+    #                 ],
+    #             )
+    #         eval_labels += [batch["labels"]]
+    #         eval_preds += [torch.argmax(counterfactual_outputs[0], dim=1)]
+    # print(classification_report(torch.cat(eval_labels).cpu(), torch.cat(eval_preds).cpu()))
 
 if __name__ =="__main__":
     main()
