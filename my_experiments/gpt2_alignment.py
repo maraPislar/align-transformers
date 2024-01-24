@@ -130,10 +130,10 @@ def main():
 
     train_file_path = "/gpfs/home1/mpislar/align-transformers/my_experiments/sum_training_data/training_sums.txt"
 
-    generate_file(train_file_path, 128000)
+    generate_file(train_file_path, 1280000)
 
     output_dir = "/gpfs/home1/mpislar/align-transformers/result/"
-    overwrite_output_dir = True
+    overwrite_output_dir = False
     per_device_train_batch_size = 64
     num_train_epochs = 10
     save_steps = 500
