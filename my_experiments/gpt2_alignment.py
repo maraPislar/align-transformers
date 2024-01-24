@@ -109,6 +109,7 @@ def get_predicted_label(model, tokenizer, prompt, max_length):
         top_p=0.95,
     )
     generated_text = tokenizer.decode(final_outputs[0], skip_special_tokens=True)
+    print(generated_text.strip())
     return generated_text[len(prompt):].strip()
 
 def eval_finetuned_gpt2(num_examples=100):
@@ -136,7 +137,7 @@ def main():
 
     train_file_path = "/gpfs/home1/mpislar/align-transformers/my_experiments/sum_training_data/training_sums.txt"
 
-    generate_file(train_file_path, 128000)
+    generate_file(train_file_path, 1280000)
 
     output_dir = "/gpfs/home1/mpislar/align-transformers/result/"
     overwrite_output_dir = False
