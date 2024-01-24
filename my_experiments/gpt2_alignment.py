@@ -273,7 +273,7 @@ def main():
     output_dir = "/gpfs/home1/mpislar/align-transformers/result/"
     overwrite_output_dir = False
     batch_size = 64
-    num_train_epochs = 30
+    num_train_epochs = 50
 
     train(
         train_file_path=train_file_path,
