@@ -16,9 +16,9 @@ def generate_sum_examples(num_examples=100):
         num2 = random.randint(1, 10)
         num3 = random.randint(1, 10)
 
-        prompt = f"Calculate {num1}+{num2}+{num3}="
+        prompt = f"{num1}+{num2}+{num3}="
         answer = str(num1 + num2 + num3)
-        full_text.append(f"Calculate {num1}+{num2}+{num3}=" + str(answer))
+        full_text.append(f"{num1}+{num2}+{num3}=" + str(answer))
 
         prompts.append(prompt)
         answers.append(answer)
@@ -34,7 +34,7 @@ def generate_file(file_path, num_examples = 10000):
         for string in data:
             file.write(string + '\n')
 
-def load_dataset(file_path, tokenizer, block_size = 64):
+def load_dataset(file_path, tokenizer, block_size = 128):
     dataset = TextDataset(
         tokenizer = tokenizer,
         file_path = file_path,
@@ -142,11 +142,11 @@ def main():
 
     train_file_path = "/gpfs/home1/mpislar/align-transformers/my_experiments/sum_training_data/training_sums.txt"
 
-    generate_file(train_file_path, 1048576)
+    generate_file(train_file_path, 128000)
 
     output_dir = "/gpfs/home1/mpislar/align-transformers/result/"
     overwrite_output_dir = False
-    batch_size = 1024
+    batch_size = 64
     num_train_epochs = 10
     save_steps = 500
 
