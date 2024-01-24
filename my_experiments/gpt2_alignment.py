@@ -24,7 +24,7 @@ def generate_sum_examples(num_examples=100):
 
     return prompts, answers, full_text
 
-def generate_training_file(file_path, num_examples = 10000):
+def generate_file(file_path, num_examples = 10000):
 
     _, _, data = generate_sum_examples(num_examples)
 
@@ -92,10 +92,7 @@ def load_tokenizer(tokenizer_path):
     return tokenizer
 
 
-def generate_text(prompt, label, max_length):
-    model_path = "../align-transformers/result"
-    model = load_model(model_path)
-    tokenizer = load_tokenizer(model_path)
+def generate_text(model, tokenizer, prompt, label, max_length):
     ids = tokenizer.encode(f'{prompt}', return_tensors='pt')
     final_outputs = model.generate(
         ids,
@@ -106,27 +103,29 @@ def generate_text(prompt, label, max_length):
         top_p=0.95,
     )
     print(tokenizer.decode(final_outputs[0], skip_special_tokens=True))
-    print(f"True labal: {label}")
+    print(f"True output: {prompt}{label}")
 
 def eval_finetuned_gpt2(num_examples=100):
+    model_path = "/gpfs/home1/mpislar/align-transformers/result/"
+    model = load_model(model_path)
+    tokenizer = load_tokenizer(model_path)
+    _ = model.eval()
     prompts, labels, _ = generate_sum_examples(num_examples)
     max_len=1
     for prompt, label in zip(prompts, labels):
-        generate_text(prompt, label, max_len)
+        generate_text(model, tokenizer, prompt, label, max_len)
 
 def main():
 
     _, tokenizer, gpt2 = pyvene.create_gpt2_lm()
     tokenizer.pad_token = tokenizer.eos_token
     _ = gpt2.to("cuda")
-    _ = gpt2.eval()
 
-    file_path = "training_sums.txt"
+    train_file_path = "/gpfs/home1/mpislar/align-transformers/my_experiments/sum_training_data/training_sums.txt"
 
-    generate_training_file(file_path)
+    generate_file(train_file_path)
 
-    train_file_path = "sums.txt"
-    output_dir = '../align-transformers/result'
+    output_dir = "/gpfs/home1/mpislar/align-transformers/result/"
     overwrite_output_dir = False
     per_device_train_batch_size = 8
     num_train_epochs = 5
@@ -143,7 +142,7 @@ def main():
         save_steps=save_steps
     )
 
-    eval_finetuned_gpt2(prompts, labels)
+    eval_finetuned_gpt2(5)
 
 if __name__ =="__main__":
     main()
