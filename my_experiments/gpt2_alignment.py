@@ -4,6 +4,7 @@ import random
 from transformers import Trainer, TrainingArguments
 from transformers import TextDataset, DataCollatorForLanguageModeling
 from transformers import PreTrainedTokenizerFast, GPT2LMHeadModel, GPT2TokenizerFast, GPT2Tokenizer
+from sklearn.metrics import classification_report
 
 def generate_sum_examples(num_examples=100):
     prompts = []
@@ -33,7 +34,7 @@ def generate_file(file_path, num_examples = 10000):
         for string in data:
             file.write(string + '\n')
 
-def load_dataset(file_path, tokenizer, block_size = 128):
+def load_dataset(file_path, tokenizer, block_size = 64):
     dataset = TextDataset(
         tokenizer = tokenizer,
         file_path = file_path,
@@ -55,7 +56,7 @@ def train(train_file_path,
           tokenizer,
           output_dir,
           overwrite_output_dir,
-          per_device_train_batch_size,
+          batch_size,
           num_train_epochs,
           save_steps):
   
@@ -64,12 +65,16 @@ def train(train_file_path,
 
     tokenizer.save_pretrained(output_dir)
     model.save_pretrained(output_dir)
+    _ = model.train()
 
     training_args = TrainingArguments(
         output_dir=output_dir,
         overwrite_output_dir=overwrite_output_dir,
-        per_device_train_batch_size=per_device_train_batch_size,
+        per_device_train_batch_size=batch_size,
+        per_device_eval_batch_size=batch_size,
         num_train_epochs=num_train_epochs,
+        evaluation_strategy="epoch",
+        learning_rate=0.001
     )
 
     trainer = Trainer(
@@ -77,9 +82,15 @@ def train(train_file_path,
         args=training_args,
         data_collator=data_collator,
         train_dataset=train_dataset,
+        eval_dataset=train_dataset,
+        compute_metrics=lambda x: {
+            "accuracy": classification_report(
+                x[0].argmax(1), x[1].argmax(1), output_dict=True
+            )["accuracy"]
+        }
     )
         
-    trainer.train()
+    _ = trainer.train()
     trainer.save_model()
 
 def load_model(model_path):
@@ -103,6 +114,7 @@ def get_predicted_label(model, tokenizer, prompt, max_length):
         top_p=0.95,
     )
     generated_text = tokenizer.decode(final_outputs[0], skip_special_tokens=True)
+    print(generated_text)
     return generated_text[len(prompt):].strip()
 
 def eval_finetuned_gpt2(num_examples=100):
@@ -111,7 +123,7 @@ def eval_finetuned_gpt2(num_examples=100):
     tokenizer = load_tokenizer(model_path)
     _ = model.eval()
     prompts, labels, _ = generate_sum_examples(num_examples)
-    max_len=1
+    max_len=9
     count = 0
     for prompt, label in zip(prompts, labels):
         pred_label = get_predicted_label(model, tokenizer, prompt, max_len)
@@ -130,11 +142,11 @@ def main():
 
     train_file_path = "/gpfs/home1/mpislar/align-transformers/my_experiments/sum_training_data/training_sums.txt"
 
-    generate_file(train_file_path, 1280000)
+    generate_file(train_file_path, 1048576)
 
     output_dir = "/gpfs/home1/mpislar/align-transformers/result/"
     overwrite_output_dir = False
-    per_device_train_batch_size = 64
+    per_device_train_batch_size = 1024
     num_train_epochs = 10
     save_steps = 500
 
@@ -149,7 +161,7 @@ def main():
         save_steps=save_steps
     )
 
-    eval_finetuned_gpt2(1000)
+    eval_finetuned_gpt2(100)
 
 if __name__ =="__main__":
     main()
