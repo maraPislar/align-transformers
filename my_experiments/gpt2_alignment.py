@@ -7,23 +7,20 @@ from transformers import PreTrainedTokenizerFast, GPT2LMHeadModel, GPT2Tokenizer
 from sklearn.metrics import classification_report
 from pyvene import CausalModel
 import numpy as np
+from datasets import Dataset
+import torch
 
-def generate_sum_examples(num_examples=100):
+def generate_sum_examples(inputs, labels):
     prompts = []
     answers = []
     full_text = []
 
-    for _ in range(num_examples):
-        num1 = random.randint(1, 10)
-        num2 = random.randint(1, 10)
-        num3 = random.randint(1, 10)
-
-        prompt = f"{num1}+{num2}+{num3}="
-        answer = num1 + num2 + num3
-        full_text.append(f"{prompt}{answer}")
+    for sum_input, label in zip(inputs,labels):
+        prompt = f"{int(sum_input[0])}+{int(sum_input[1])}+{int(sum_input[2])}="
+        full_text.append(f"{prompt}{int(label.item())}")
 
         prompts.append(prompt)
-        answers.append(str(answer))
+        answers.append(str(int(label.item())))
 
     return prompts, answers, full_text
 
@@ -33,9 +30,9 @@ def input_sampler():
     C = randNum()
     return {"X":A, "Y":B, "Z":C}
 
-def generate_file(file_path, num_examples = 10000):
+def generate_file(file_path, inputs, labels):
 
-    _, _, data = generate_sum_examples(num_examples)
+    _, _, data = generate_sum_examples(inputs, labels)
 
     # Open the file in write mode and write each string followed by a newline
     with open(file_path, 'w') as file:
@@ -120,12 +117,11 @@ def get_predicted_label(model, tokenizer, prompt, max_length):
     print(generated_text.strip())
     return generated_text[len(prompt):].strip()
 
-def eval_finetuned_gpt2(num_examples=100):
+def eval_finetuned_gpt2(prompts, labels, num_examples=100):
     model_path = "/gpfs/home1/mpislar/align-transformers/result/"
     model = load_model(model_path)
     tokenizer = load_tokenizer(model_path)
     _ = model.eval()
-    prompts, labels, _ = generate_sum_examples(num_examples)
     max_len=2
     count = 0
     for prompt, label in zip(prompts, labels):
@@ -226,41 +222,37 @@ def causal_model_3():
 
 def main():
 
-    # _, tokenizer, gpt2 = pyvene.create_gpt2_lm()
-    # tokenizer.pad_token = tokenizer.eos_token
-    # _ = gpt2.to("cuda")
+    _, tokenizer, gpt2 = pyvene.create_gpt2_lm()
+    tokenizer.pad_token = tokenizer.eos_token
+    _ = gpt2.to("cuda")
 
-    # train_file_path = "/gpfs/home1/mpislar/align-transformers/my_experiments/sum_training_data/training_sums.txt"
+    train_file_path = "/gpfs/home1/mpislar/align-transformers/my_experiments/sum_training_data/training_sums.txt"
 
-    # generate_file(train_file_path, 1280000)
+    n_examples = 1280000
+    causal_model = causal_model_2()
+    inputs, labels = causal_model.generate_factual_dataset(n_examples, input_sampler)
+    generate_file(train_file_path, inputs, labels)
 
-    # output_dir = "/gpfs/home1/mpislar/align-transformers/result/"
-    # overwrite_output_dir = False
-    # batch_size = 64
-    # num_train_epochs = 30
-    # save_steps = 500
+    output_dir = "/gpfs/home1/mpislar/align-transformers/result/"
+    overwrite_output_dir = False
+    batch_size = 64
+    num_train_epochs = 30
+    save_steps = 500
 
-    # train(
-    #     train_file_path=train_file_path,
-    #     model=gpt2,
-    #     tokenizer=tokenizer,
-    #     output_dir=output_dir,
-    #     overwrite_output_dir=overwrite_output_dir,
-    #     batch_size=batch_size,
-    #     num_train_epochs=num_train_epochs,
-    #     save_steps=save_steps
-    # )
+    train(
+        train_file_path=train_file_path,
+        model=gpt2,
+        tokenizer=tokenizer,
+        output_dir=output_dir,
+        overwrite_output_dir=overwrite_output_dir,
+        batch_size=batch_size,
+        num_train_epochs=num_train_epochs,
+        save_steps=save_steps
+    )
 
-    # eval_finetuned_gpt2(100)
-
-    n_examples = 1000
-
-    causal_model = causal_model_1()
-
-    X, y = causal_model.generate_factual_dataset(n_examples, input_sampler)
-    X = X.unsqueeze(1)
-    print(X[0])
-    print(y[0])
+    n_examples = 100
+    test_inputs, test_labels = causal_model.generate_factual_dataset(n_examples, input_sampler)
+    eval_finetuned_gpt2(test_inputs, test_labels, n_examples)
 
 if __name__ =="__main__":
     main()
