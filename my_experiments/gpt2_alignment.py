@@ -40,7 +40,7 @@ def input_sampler():
     A = randNum()
     B = randNum()
     C = randNum()
-    return {"X":A, "Y":B, "Z":C}
+    return {"X":tokenizePrompt(A), "Y":tokenizePrompt(B), "Z":tokenizePrompt(C)}
 
 # save all the data in a file for easier training of gpt2
 def generate_file(file_path, inputs, labels):
