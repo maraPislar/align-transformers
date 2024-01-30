@@ -6,8 +6,7 @@ from transformers import Trainer, TrainingArguments
 from transformers import TextDataset, DataCollatorForLanguageModeling
 from transformers import GPT2LMHeadModel, GPT2Tokenizer
 from sklearn.metrics import classification_report
-# from pyvene import CausalModel
-from pyvene.data_generators.causal_model import CausalModel
+from pyvene import CausalModel
 import numpy as np
 from tqdm import tqdm, trange
 import torch
@@ -17,7 +16,7 @@ import random
 from pyvene import (
     IntervenableModel,
     RotatedSpaceIntervention,
-    IntervenableRepresentationConfig,
+    RepresentationConfig,
     IntervenableConfig,
 )
 
@@ -314,7 +313,7 @@ def main():
     intervenable_config = IntervenableConfig(
         intervenable_model_type=type(model),
         intervenable_representations=[
-            IntervenableRepresentationConfig(
+            RepresentationConfig(
                 0,  # layer
                 "block_output",  # intervention type
                 "pos",  # intervention unit is now aligne with tokens
@@ -322,7 +321,7 @@ def main():
                 subspace_partition=None,  # binary partition with equal sizes
                 intervention_link_key=0,
             ),
-            IntervenableRepresentationConfig(
+            RepresentationConfig(
                 0,  # layer
                 "block_output",  # intervention type
                 "pos",  # intervention unit is now aligne with tokens
