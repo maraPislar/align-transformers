@@ -311,8 +311,28 @@ def main():
 
     # define intervention model
     intervenable_config = IntervenableConfig(
-        intervenable_model_type=type(model),
-        intervenable_representations=[
+        # intervenable_model_type=type(model),
+        # intervenable_representations=[
+        #     RepresentationConfig(
+        #         0,  # layer
+        #         "block_output",  # intervention type
+        #         "pos",  # intervention unit is now aligne with tokens
+        #         1,  # max number of unit
+        #         subspace_partition=None,  # binary partition with equal sizes
+        #         intervention_link_key=0,
+        #     ),
+        #     RepresentationConfig(
+        #         0,  # layer
+        #         "block_output",  # intervention type
+        #         "pos",  # intervention unit is now aligne with tokens
+        #         1,  # max number of unit
+        #         subspace_partition=None,  # binary partition with equal sizes,
+        #         intervention_link_key=0,
+        #     ),
+        # ],
+        # intervenable_interventions_type=RotatedSpaceIntervention,
+        model_type=type(model),
+        representations=[
             RepresentationConfig(
                 0,  # layer
                 "block_output",  # intervention type
@@ -330,7 +350,7 @@ def main():
                 intervention_link_key=0,
             ),
         ],
-        intervenable_interventions_type=RotatedSpaceIntervention,
+        intervention_types=RotatedSpaceIntervention,
     )
 
     intervenable = IntervenableModel(intervenable_config, model, use_fast=True)
