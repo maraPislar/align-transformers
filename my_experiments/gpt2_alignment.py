@@ -266,7 +266,7 @@ def train_gpt2(causal_model, n_examples):
     train_file_path = "/gpfs/home1/mpislar/align-transformers/my_experiments/sum_training_data/training_sums.txt"
 
     # generate data for training gpt2
-    inputs, labels = causal_model.generate_factual_dataset(n_examples, input_sampler)
+    inputs, labels = causal_model.generate_factual_dataset(n_examples, input_sampler, inputFunction=tokenizePrompt)
     generate_file(train_file_path, inputs, labels)
 
     # train gpt2 on summing three numbers
@@ -305,7 +305,7 @@ def main():
     # generate data for testing if gpt2 has learnt the task well
     n_examples = 100
     test_causal_model = causal_model_1()
-    test_inputs, test_labels = test_causal_model.generate_factual_dataset(n_examples, input_sampler)
+    test_inputs, test_labels = test_causal_model.generate_factual_dataset(n_examples, input_sampler, inputFunction=tokenizePrompt)
     test_inputs, test_labels, _ = generate_sum_examples(test_inputs, test_labels) # convert back to prompt
     eval_finetuned_gpt2(model, tokenizer, test_inputs, test_labels, n_examples)
 
