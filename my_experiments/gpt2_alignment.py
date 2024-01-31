@@ -137,9 +137,7 @@ def eval_finetuned_gpt2(model, tokenizer, prompts_ids, labels, num_examples=100)
     count = 0
     for prompt_ids, label in zip(prompts_ids, labels):
         pred_label = get_predicted_label(model, tokenizer, prompt_ids, max_len)
-        true_label = tokenizer.decode(label, skip_special_tokens=True)
-        print(true_label)
-        if pred_label == true_label.strip():
+        if pred_label == label:
             count += 1
     if count > 0:
         print(f"Accuracy is {count/num_examples}")
@@ -310,7 +308,6 @@ def main():
     test_causal_model = causal_model_1()
     test_inputs, test_labels = test_causal_model.generate_factual_dataset(n_examples, input_sampler, inputFunction=tokenizePrompt)
     # test_inputs, test_labels, _ = generate_sum_examples(test_inputs, test_labels) # convert back to prompt
-    print(test_labels)
     eval_finetuned_gpt2(model, tokenizer, test_inputs, test_labels, n_examples)
 
     # # define intervention model
