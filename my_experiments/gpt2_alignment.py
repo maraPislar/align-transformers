@@ -321,15 +321,15 @@ def main():
                 1,  # max number of unit
                 subspace_partition=None,  # binary partition with equal sizes
                 intervention_link_key=0,
-            ),
-            RepresentationConfig(
-                0,  # layer
-                "block_output",  # intervention type
-                "pos",  # intervention unit is now aligne with tokens
-                1,  # max number of unit
-                subspace_partition=None,  # binary partition with equal sizes,
-                intervention_link_key=0,
-            ),
+            )
+            # RepresentationConfig(
+            #     0,  # layer
+            #     "block_output",  # intervention type
+            #     "pos",  # intervention unit is now aligne with tokens
+            #     1,  # max number of unit
+            #     subspace_partition=None,  # binary partition with equal sizes,
+            #     intervention_link_key=0,
+            # ),
         ],
         intervention_types=RotatedSpaceIntervention,
     )
@@ -387,56 +387,21 @@ def main():
                 if v is not None and isinstance(v, torch.Tensor):
                     batch[k] = v.to("cuda")
 
-            if batch["intervention_id"][0] == 2:
+            if batch["intervention_id"][0] == 0:
                 _, counterfactual_outputs = intervenable(
-                    {"inputs_embeds": batch["input_ids"]},
-                    [
-                        {"inputs_embeds": batch["source_input_ids"][:, 0]},
-                        {"inputs_embeds": batch["source_input_ids"][:, 1]},
-                    ],
-                    {
-                        "sources->base": (
-                            [[[0]] * batch_size, [[0]] * batch_size],
-                            [[[0]] * batch_size, [[0]] * batch_size],
-                        )
-                    },
-                    subspaces=[
-                        [[_ for _ in range(0, embedding_dim * 2)]] * batch_size,
-                        [[_ for _ in range(embedding_dim * 2, embedding_dim * 4)]]
-                        * batch_size,
-                    ],
-                )
-            elif batch["intervention_id"][0] == 0:
-                _, counterfactual_outputs = intervenable(
-                    {"inputs_embeds": batch["input_ids"]},
-                    [{"inputs_embeds": batch["source_input_ids"][:, 0]}, None],
+                    {"inputs_embeds": batch["input_ids"]}, # base
+                    [{"inputs_embeds": batch["source_input_ids"][:, 0]}, None], # source
                     {
                         "sources->base": (
                             [[[0]] * batch_size, None],
                             [[[0]] * batch_size, None],
                         )
-                    },
+                    }, # unit locations
                     subspaces=[
-                        [[_ for _ in range(0, embedding_dim * 2)]] * batch_size,
-                        None,
+                        [[_ for _ in range(0, embedding_dim * 2)]] * batch_size
                     ],
                 )
-            elif batch["intervention_id"][0] == 1:
-                _, counterfactual_outputs = intervenable(
-                    {"inputs_embeds": batch["input_ids"]},
-                    [None, {"inputs_embeds": batch["source_input_ids"][:, 0]}],
-                    {
-                        "sources->base": (
-                            [None, [[0]] * batch_size],
-                            [None, [[0]] * batch_size],
-                        )
-                    },
-                    subspaces=[
-                        None,
-                        [[_ for _ in range(embedding_dim * 2, embedding_dim * 4)]]
-                        * batch_size,
-                    ],
-                )
+
             eval_metrics = compute_metrics(
                 counterfactual_outputs[0].argmax(1), batch["labels"].squeeze()
             )
