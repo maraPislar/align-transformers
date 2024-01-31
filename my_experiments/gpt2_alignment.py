@@ -40,8 +40,8 @@ def input_sampler():
     A = randNum()
     B = randNum()
     C = randNum()
-    return f"{int(A)}+{int(B)}+{int(C)}="
-    # return {"X":str(A), "Y":str(B), "Z":str(C)}
+    # return f"{int(A)}+{int(B)}+{int(C)}="
+    return {"X":str(A), "Y":str(B), "Z":str(C)}
 
 # save all the data in a file for easier training of gpt2
 def generate_file(file_path, inputs, labels):
@@ -118,7 +118,6 @@ def train(train_file_path,
     _ = trainer.train()
     trainer.save_model()
 
-#
 def get_predicted_label(model, tokenizer, prompt_ids, max_length):
     final_outputs = model.generate(
         prompt_ids,
@@ -289,6 +288,8 @@ def train_gpt2(causal_model, n_examples):
 
 def tokenizePrompt(prompt):
     tokenizer = load_tokenizer("/gpfs/home1/mpislar/align-transformers/result/")
+    print(prompt)
+    
     return tokenizer.encode(prompt, return_tensors='pt')
 
 def outputFunction(label):
