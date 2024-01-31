@@ -119,10 +119,9 @@ def train(train_file_path,
     trainer.save_model()
 
 #
-def get_predicted_label(model, tokenizer, prompt, max_length):
-    ids = tokenizer.encode(f'{prompt}', return_tensors='pt')
+def get_predicted_label(model, tokenizer, prompt_ids, max_length):
     final_outputs = model.generate(
-        ids,
+        prompt_ids,
         do_sample=True,
         max_length=max_length,
         pad_token_id=model.config.eos_token_id,
@@ -131,15 +130,17 @@ def get_predicted_label(model, tokenizer, prompt, max_length):
     )
     generated_text = tokenizer.decode(final_outputs[0], skip_special_tokens=True)
     print(generated_text.strip())
-    return generated_text[len(prompt):].strip()
+    return generated_text[len(prompt_ids[0]):].strip()
 
-def eval_finetuned_gpt2(model, tokenizer, prompts, labels, num_examples=100):
+def eval_finetuned_gpt2(model, tokenizer, prompts_ids, labels, num_examples=100):
     _ = model.eval()
     max_len=2
     count = 0
-    for prompt, label in zip(prompts, labels):
-        pred_label = get_predicted_label(model, tokenizer, prompt, max_len)
-        if pred_label == label:
+    for prompt_ids, label in zip(prompts_ids, labels):
+        pred_label = get_predicted_label(model, tokenizer, prompt_ids, max_len)
+        true_label = tokenizer.decode(label[0], skip_special_tokens=True)
+        print(true_label)
+        if pred_label == true_label.strip():
             count += 1
     if count > 0:
         print(f"Accuracy is {count/num_examples}")
@@ -308,8 +309,7 @@ def main():
     test_causal_model = causal_model_1()
     test_inputs, test_labels = test_causal_model.generate_factual_dataset(n_examples, input_sampler, inputFunction=tokenizePrompt)
     # test_inputs, test_labels, _ = generate_sum_examples(test_inputs, test_labels) # convert back to prompt
-    print(test_inputs)
-    # eval_finetuned_gpt2(model, tokenizer, test_inputs, test_labels, n_examples)
+    eval_finetuned_gpt2(model, tokenizer, test_inputs, test_labels, n_examples)
 
     # # define intervention model
     # intervenable_config = IntervenableConfig(
