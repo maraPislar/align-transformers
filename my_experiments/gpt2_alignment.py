@@ -138,7 +138,7 @@ def eval_finetuned_gpt2(model, tokenizer, prompts_ids, labels, num_examples=100)
     count = 0
     for prompt_ids, label in zip(prompts_ids, labels):
         pred_label = get_predicted_label(model, tokenizer, prompt_ids, max_len)
-        true_label = tokenizer.decode(label[0], skip_special_tokens=True)
+        true_label = tokenizer.decode(label, skip_special_tokens=True)
         print(true_label)
         if pred_label == true_label.strip():
             count += 1
