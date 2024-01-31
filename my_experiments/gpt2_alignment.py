@@ -148,7 +148,7 @@ def eval_finetuned_gpt2(model, tokenizer, prompts_ids, labels, num_examples=100)
 def randNum(lower=1, upper=10):
     tokenizer = load_tokenizer("/gpfs/home1/mpislar/align-transformers/result/")
     number = random.randint(lower, upper)
-    return tokenizer.encode(number, return_tensors='pt')
+    return tokenizer.encode(f'{number}', return_tensors='pt')
 
 def causal_model_1():
 
