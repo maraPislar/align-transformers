@@ -288,8 +288,8 @@ def train_gpt2(causal_model, n_examples):
 
 def tokenizePrompt(prompt):
     tokenizer = load_tokenizer("/gpfs/home1/mpislar/align-transformers/result/")
+    prompt = f"{int(prompt['X'])}+{int(prompt['Y'])}+{int(prompt['Z'])}="
     print(prompt)
-    
     return tokenizer.encode(prompt, return_tensors='pt')
 
 def outputFunction(label):
