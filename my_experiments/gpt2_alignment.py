@@ -300,6 +300,8 @@ def main():
     model = load_model(model_path)
     tokenizer = load_tokenizer(model_path)
 
+    print('evaluating...')
+
     # generate data for testing if gpt2 has learnt the task well
     n_examples = 100
     test_causal_model = causal_model_1()
@@ -347,6 +349,8 @@ def main():
         break
     optimizer = torch.optim.Adam(optimizer_params, lr=0.001)
 
+    print('generating data for DAS...')
+
     n_examples = 12800
     batch_size = 64
 
@@ -359,6 +363,8 @@ def main():
     )
 
     # train DAS
+    print('training DAS...')
+
     embedding_dim = 6
 
     intervenable.model.train()  # train enables drop-off but no grads
