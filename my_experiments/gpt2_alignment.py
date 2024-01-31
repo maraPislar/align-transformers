@@ -41,7 +41,7 @@ def input_sampler():
     B = randNum()
     C = randNum()
     # return f"{int(A)}+{int(B)}+{int(C)}="
-    return {"X":str(A), "Y":str(B), "Z":str(C)}
+    return {"X":int(A), "Y":int(B), "Z":int(C)}
 
 # save all the data in a file for easier training of gpt2
 def generate_file(file_path, inputs, labels):
