@@ -158,8 +158,8 @@ def causal_model_1():
 
     reps = [randNum() for _ in range(number_of_entities)]
     values = {variable:reps for variable in ["X", "Y", "Z"]}
-    values["P"] = [tokenizer.encode(f'{number}', return_tensors='pt') for number in range(2, 21)]
-    values["O"] = [tokenizer.encode(f'{number}', return_tensors='pt') for number in range(3, 31)]
+    values["P"] = list(range(2, 21))
+    values["O"] = list(range(3, 31))
 
     parents = {"X":[], "Y":[], "Z":[], 
             "P":["X", "Y"],
@@ -169,8 +169,8 @@ def causal_model_1():
         return reps[0]
 
     functions = {"X":FILLER, "Y":FILLER, "Z":FILLER, 
-                "P": lambda x,y: tokenizer.encode(tokenizer.decode(x[0], skip_special_tokens=True) + tokenizer.decode(y[0], skip_special_tokens=True), return_tensors='pt'),
-                "O": lambda x,y: tokenizer.encode(tokenizer.decode(x[0], skip_special_tokens=True) + tokenizer.decode(y[0], skip_special_tokens=True), return_tensors='pt')}
+                "P": lambda x,y: tokenizer.decode(x[0], skip_special_tokens=True) + tokenizer.decode(y[0], skip_special_tokens=True),
+                "O": lambda x,y: tokenizer.decode(x[0], skip_special_tokens=True) + tokenizer.decode(y[0], skip_special_tokens=True)}
 
     pos = {"X":(1,0.1), "Y":(2,0.2), "Z":(2.8,0), 
             "P":(1,2),
