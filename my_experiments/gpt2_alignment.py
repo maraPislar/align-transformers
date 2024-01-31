@@ -154,11 +154,12 @@ def causal_model_1():
 
     variables =  ["X", "Y", "Z", "P", "O"]
     number_of_entities = 20
+    tokenizer = load_tokenizer("/gpfs/home1/mpislar/align-transformers/result/")
 
     reps = [randNum() for _ in range(number_of_entities)]
     values = {variable:reps for variable in ["X", "Y", "Z"]}
-    values["P"] = list(range(2, 21))
-    values["O"] = list(range(3, 31))
+    values["P"] = [tokenizer.encode(f'{number}', return_tensors='pt') for number in range(2, 21)]
+    values["O"] = [tokenizer.encode(f'{number}', return_tensors='pt') for number in range(3, 31)]
 
     parents = {"X":[], "Y":[], "Z":[], 
             "P":["X", "Y"],
@@ -166,8 +167,6 @@ def causal_model_1():
 
     def FILLER():
         return reps[0]
-    
-    tokenizer = load_tokenizer("/gpfs/home1/mpislar/align-transformers/result/")
 
     functions = {"X":FILLER, "Y":FILLER, "Z":FILLER, 
                 "P": lambda x,y: tokenizer.encode(tokenizer.decode(x[0], skip_special_tokens=True) + tokenizer.decode(y[0], skip_special_tokens=True), return_tensors='pt'),
