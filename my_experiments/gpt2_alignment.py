@@ -145,9 +145,6 @@ def eval_finetuned_gpt2(model, tokenizer, prompts_ids, labels, num_examples=100)
     else:
         print("Accuracy is 0.")
 
-def randvec(n=50, lower=-1, upper=1):
-    return np.array([round(random.uniform(lower, upper), 2) for i in range(n)])
-
 def randNum(lower=1, upper=10):
         return random.randint(lower, upper)
 
@@ -390,11 +387,11 @@ def main():
             if batch["intervention_id"][0] == 0:
                 _, counterfactual_outputs = intervenable(
                     {"inputs_embeds": batch["input_ids"]}, # base
-                    [{"inputs_embeds": batch["source_input_ids"][:, 0]}, None], # source
+                    [{"inputs_embeds": batch["source_input_ids"][:, 0]}], # source
                     {
                         "sources->base": (
-                            [[[0]] * batch_size, None],
-                            [[[0]] * batch_size, None],
+                            [[[0]] * batch_size],
+                            [[[0]] * batch_size],
                         )
                     }, # unit locations
                     subspaces=[
@@ -437,26 +434,8 @@ def main():
                     batch[k] = v.to("cuda")
             batch["input_ids"] = batch["input_ids"].unsqueeze(1)
             batch["source_input_ids"] = batch["source_input_ids"].unsqueeze(2)
-            if batch["intervention_id"][0] == 2:
-                _, counterfactual_outputs = intervenable(
-                    {"inputs_embeds": batch["input_ids"]},
-                    [
-                        {"inputs_embeds": batch["source_input_ids"][:, 0]},
-                        {"inputs_embeds": batch["source_input_ids"][:, 1]},
-                    ],
-                    {
-                        "sources->base": (
-                            [[[0]] * batch_size, [[0]] * batch_size],
-                            [[[0]] * batch_size, [[0]] * batch_size],
-                        )
-                    },
-                    subspaces=[
-                        [[_ for _ in range(0, embedding_dim * 2)]] * batch_size,
-                        [[_ for _ in range(embedding_dim * 2, embedding_dim * 4)]]
-                        * batch_size,
-                    ],
-                )
-            elif batch["intervention_id"][0] == 0:
+
+            if batch["intervention_id"][0] == 0:
                 _, counterfactual_outputs = intervenable(
                     {"inputs_embeds": batch["input_ids"]},
                     [{"inputs_embeds": batch["source_input_ids"][:, 0]}, None],
@@ -467,26 +446,10 @@ def main():
                         )
                     },
                     subspaces=[
-                        [[_ for _ in range(0, embedding_dim * 2)]] * batch_size,
-                        None,
+                        [[_ for _ in range(0, embedding_dim * 2)]] * batch_size
                     ],
                 )
-            elif batch["intervention_id"][0] == 1:
-                _, counterfactual_outputs = intervenable(
-                    {"inputs_embeds": batch["input_ids"]},
-                    [None, {"inputs_embeds": batch["source_input_ids"][:, 0]}],
-                    {
-                        "sources->base": (
-                            [None, [[0]] * batch_size],
-                            [None, [[0]] * batch_size],
-                        )
-                    },
-                    subspaces=[
-                        None,
-                        [[_ for _ in range(embedding_dim * 2, embedding_dim * 4)]]
-                        * batch_size,
-                    ],
-                )
+            
             eval_labels += [batch["labels"]]
             eval_preds += [torch.argmax(counterfactual_outputs[0], dim=1)]
     print(classification_report(torch.cat(eval_labels).cpu(), torch.cat(eval_preds).cpu()))
