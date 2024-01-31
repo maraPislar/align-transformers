@@ -138,8 +138,7 @@ def eval_finetuned_gpt2(model, tokenizer, prompts_ids, labels, num_examples=100)
     count = 0
     for prompt_ids, label in zip(prompts_ids, labels):
         pred_label = get_predicted_label(model, tokenizer, prompt_ids, max_len)
-        print(int(label.item()))
-        if pred_label == int(label.item()):
+        if pred_label == str(int(label.item())):
             count += 1
     if count > 0:
         print(f"Accuracy is {count/num_examples}")
