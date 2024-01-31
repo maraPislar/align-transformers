@@ -129,7 +129,7 @@ def get_predicted_label(model, tokenizer, prompt_ids, max_length):
     )
     generated_text = tokenizer.decode(final_outputs[0], skip_special_tokens=True)
     print(generated_text.strip())
-    return generated_text[len(prompt_ids[0]):].strip()
+    return generated_text[len(prompt_ids):].strip()
 
 def eval_finetuned_gpt2(model, tokenizer, prompts_ids, labels, num_examples=100):
     _ = model.eval()
@@ -287,7 +287,6 @@ def train_gpt2(causal_model, n_examples):
 def tokenizePrompt(prompt):
     tokenizer = load_tokenizer("/gpfs/home1/mpislar/align-transformers/result/")
     prompt = f"{int(prompt['X'])}+{int(prompt['Y'])}+{int(prompt['Z'])}="
-    print(prompt)
     return tokenizer.encode(prompt, return_tensors='pt')
 
 def main():
