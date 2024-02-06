@@ -368,7 +368,7 @@ def main():
     # train DAS
     print('training DAS...')
 
-    embedding_dim = 6
+    embedding_dim = 768
 
     intervenable.model.train()  # train enables drop-off but no grads
     print("intervention trainable parameters: ", intervenable.count_parameters())
