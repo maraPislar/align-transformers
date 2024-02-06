@@ -447,11 +447,11 @@ def main():
             if batch["intervention_id"][0] == 0:
                 _, counterfactual_outputs = intervenable(
                     {"inputs_embeds": batch["input_ids"]},
-                    [{"inputs_embeds": batch["source_input_ids"][:, 0]}, None],
+                    [{"inputs_embeds": batch["source_input_ids"][:, 0]}],
                     {
                         "sources->base": (
-                            [[[0]] * batch_size, None],
-                            [[[0]] * batch_size, None],
+                            [[[0]] * batch_size],
+                            [[[0]] * batch_size],
                         )
                     },
                     subspaces=[
