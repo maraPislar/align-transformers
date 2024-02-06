@@ -169,11 +169,8 @@ def causal_model_1():
         return reps[0]
 
     functions = {"X":FILLER, "Y":FILLER, "Z":FILLER, 
-                "P": lambda x, y: (
-                    print(int(tokenizer.decode(x[0], skip_special_tokens=True).split()[0])),
-                    int(tokenizer.decode(x[0], skip_special_tokens=True).split()) + int(tokenizer.decode(y[0], skip_special_tokens=True).split())
-                ),
-                "O": lambda x,y: int(tokenizer.decode(x[0], skip_special_tokens=True).split()) + int(tokenizer.decode(y[0], skip_special_tokens=True).split())}
+                "P": lambda x, y: int(tokenizer.decode(x[0], skip_special_tokens=True).split()[0]) + int(tokenizer.decode(y[0], skip_special_tokens=True).split()[0]),
+                "O": lambda x,y: int(tokenizer.decode(x[0], skip_special_tokens=True).split()[0]) + int(tokenizer.decode(y[0], skip_special_tokens=True).split()[0])}
 
     pos = {"X":(1,0.1), "Y":(2,0.2), "Z":(2.8,0), 
             "P":(1,2),
