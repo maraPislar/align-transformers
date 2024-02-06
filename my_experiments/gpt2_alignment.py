@@ -286,8 +286,8 @@ def train_gpt2(causal_model, n_examples):
     )
 
 def tokenizePrompt(prompt):
-    print(tokenizer.decode(prompt['X'].item(), skip_special_tokens=True))
     tokenizer = load_tokenizer("/gpfs/home1/mpislar/align-transformers/result/")
+    print(tokenizer.decode(prompt['X'].item(), skip_special_tokens=True))
     prompt = f"{tokenizer.decode(prompt['X'].item(), skip_special_tokens=True)}+{tokenizer.decode(prompt['Y'].item(), skip_special_tokens=True)}+{tokenizer.decode(prompt['Z'], skip_special_tokens=True)}="
     print(prompt)
     return tokenizer.encode(prompt, return_tensors='pt')
