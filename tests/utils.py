@@ -213,6 +213,12 @@ def GPT2_RUN(gpt2, input_ids, CACHE_ACTIVATIONS, INTERVENTION_ACTIVATIONS):
     position_ids = torch.arange(0, input_shape[-1], dtype=torch.long, device=device)
     position_ids = position_ids.unsqueeze(0)
     position_embeds = gpt2.transformer.wpe(position_ids)
+
+    #### MY CODE ####
+    if inputs_embeds.size(-1) != position_embeds.size(-1):
+        position_embeds = position_embeds.expand_as(inputs_embeds)
+    ####
+
     hidden_states = inputs_embeds + position_embeds
 
     for i, block in enumerate(gpt2.transformer.h):
