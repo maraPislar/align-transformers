@@ -133,8 +133,6 @@ def get_predicted_label(model, tokenizer, prompt_ids, max_length):
     return generated_text.split('=')[1].strip()
 
 def eval_finetuned_gpt2(model, tokenizer, prompts_ids, labels, num_examples=100):
-    print(prompts_ids)
-    print(labels)
     _ = model.eval()
     max_len=2
     count = 0
