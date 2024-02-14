@@ -302,7 +302,7 @@ def tokenizePrompt(prompt):
     inputs = tokenizer(prompt, return_tensors='pt')
     with torch.no_grad():
         outputs = model(**inputs)
-    embeddings = outputs.past_key_values[-1]
+    embeddings, _ = outputs.past_key_values[-1]
     print(embeddings)
     return embeddings
 
