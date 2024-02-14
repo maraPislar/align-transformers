@@ -325,9 +325,9 @@ def main():
     # generate data for testing if gpt2 has learnt the task well
     n_examples = 100
     test_causal_model = causal_model_1()
-    test_inputs, test_labels = test_causal_model.generate_factual_dataset(n_examples, input_sampler, inputFunction=tokenizePrompt)
+    # test_inputs, test_labels = test_causal_model.generate_factual_dataset(n_examples, input_sampler, inputFunction=tokenizePrompt)
     # test_inputs, test_labels, _ = generate_sum_examples(test_inputs, test_labels) # convert back to prompt
-    eval_finetuned_gpt2(model, tokenizer, test_inputs, test_labels, n_examples)
+    # eval_finetuned_gpt2(model, tokenizer, test_inputs, test_labels, n_examples)
 
     # define intervention model
     intervenable_config = IntervenableConfig(
