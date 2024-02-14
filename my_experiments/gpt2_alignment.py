@@ -302,6 +302,7 @@ def tokenizePrompt(prompt):
     inputs = tokenizer(prompt, return_tensors='pt')
     with torch.no_grad():
         outputs = model(**inputs)
+    print(outputs)
     return outputs.last_hidden_state
 
 
