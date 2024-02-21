@@ -359,8 +359,8 @@ def main():
             #     intervention_link_key=0,
             # )
         ],
-        intervention_types=RotatedSpaceIntervention,
-        # intervention_types=VanillaIntervention,
+        # intervention_types=RotatedSpaceIntervention,
+        intervention_types=VanillaIntervention,
     )
 
     intervenable = IntervenableModel(intervenable_config, model, use_fast=True)
@@ -373,18 +373,18 @@ def main():
     # target_total_step = len(dataset) * epochs
 
     # t_total = int(len(dataset) * epochs)
-    optimizer_params = []
-    for k, v in intervenable.interventions.items():
-        optimizer_params += [{"params": v[0].rotate_layer.parameters()}]
-        break
+    # optimizer_params = []
+    # for k, v in intervenable.interventions.items():
+    #     optimizer_params += [{"params": v[0].rotate_layer.parameters()}]
+    #     break
 
     # model.enable_model_gradients()
     # print("number of params:", model.count_parameters())
-    # optimizer_params = []
-    # for k, v in intervenable.interventions.items():
-    #     optimizer_params += [{"params": v[0].parameters()}]
-    #     break
-    
+    optimizer_params = []
+    for k, v in intervenable.interventions.items():
+        optimizer_params += [{"params": v[0].parameters()}]
+        break
+
     optimizer = torch.optim.Adam(optimizer_params, lr=0.001)
 
     print('generating data for DAS...')
@@ -450,13 +450,19 @@ def main():
                     # ], # if you want to target the whole token repr => you don't even need to define it
                 )
 
+            print(counterfactual_outputs[0].argmax(1))
+            print(counterfactual_outputs[0].argmax(1).squeeze())
+            print(batch["labels"].squeeze())
+            print(counterfactual_outputs[0])
+            print(counterfactual_outputs[0].squeeze())
+
             eval_metrics = compute_metrics(
-                counterfactual_outputs[0].argmax(1), batch["labels"].squeeze()
+                counterfactual_outputs[0].argmax(1).squeeze(), batch["labels"].squeeze()
             )
 
             # loss and backprop
             loss = compute_loss(
-                counterfactual_outputs[0], batch["labels"].squeeze().to(torch.long)
+                counterfactual_outputs[0].squeeze(), batch["labels"].squeeze()
             )
 
             epoch_iterator.set_postfix({"loss": loss, "acc": eval_metrics["accuracy"]})
