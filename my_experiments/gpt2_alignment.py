@@ -4,7 +4,7 @@ sys.path.append(os.path.join('..', '..'))
 import pyvene
 from transformers import Trainer, TrainingArguments
 from transformers import TextDataset, DataCollatorForLanguageModeling
-from transformers import GPT2LMHeadModel, GPT2Tokenizer
+from transformers import GPT2LMHeadModel, GPT2Tokenizer, GPT2Model
 from sklearn.metrics import classification_report
 from pyvene import CausalModel
 import numpy as np
@@ -72,7 +72,7 @@ def load_data_collator(tokenizer, mlm = False):
     return data_collator
 
 def load_model(model_path):
-    model = GPT2LMHeadModel.from_pretrained(model_path)
+    model = GPT2Model.from_pretrained(model_path)
     return model
 
 
@@ -378,8 +378,8 @@ def main():
     #     optimizer_params += [{"params": v[0].rotate_layer.parameters()}]
     #     break
 
-    model.enable_model_gradients()
-    print("number of params:", model.count_parameters())
+    # model.enable_model_gradients()
+    # print("number of params:", model.count_parameters())
     optimizer_params = []
     for k, v in intervenable.interventions.items():
         optimizer_params += [{"params": v[0].parameters()}]
