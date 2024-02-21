@@ -337,7 +337,7 @@ def main():
                 0,  # layer
                 "block_output",  # intervention type
                 "pos",  # intervention unit is now aligne with tokens; default though
-                1,  # max number of tokens to intervene on
+                2,  # max number of tokens to intervene on
                 subspace_partition=None,  # binary partition with equal sizes
                 intervention_link_key=0,
             )
