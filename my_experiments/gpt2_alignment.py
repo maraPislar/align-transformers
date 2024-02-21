@@ -433,8 +433,8 @@ def main():
                     [{"input_ids": batch["source_input_ids"][:, 0]}], # source, selecting all rows and only the values from the first column
                     {
                         "sources->base": (
-                            [[[0]] * batch_size], # each inner list is a reference to the same list object
-                            [[[1]] * batch_size], # 0 (source) --> 1 (base); 3 (source) --> 4 (base)
+                            [[[0, 1, 2]] * batch_size], # each inner list is a reference to the same list object
+                            [[[0, 1, 2]] * batch_size], # 0 (source) --> 1 (base); 3 (source) --> 4 (base)
                         )
                         # experiment
                         # "sources->base": (
