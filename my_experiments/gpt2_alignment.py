@@ -377,6 +377,13 @@ def main():
     for k, v in intervenable.interventions.items():
         optimizer_params += [{"params": v[0].rotate_layer.parameters()}]
         break
+
+    model.enable_model_gradients()
+    print("number of params:", model.count_parameters())
+    optimizer_params = []
+    for k, v in intervenable.interventions.items():
+        optimizer_params += [{"params": v[0].parameters()}]
+        break
     optimizer = torch.optim.Adam(optimizer_params, lr=0.001)
 
     print('generating data for DAS...')
