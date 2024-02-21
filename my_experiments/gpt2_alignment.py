@@ -18,6 +18,7 @@ from pyvene import (
     RotatedSpaceIntervention,
     RepresentationConfig,
     IntervenableConfig,
+    VanillaIntervention
 )
 
 # generate the prompts given the inputs and outputs generated with the causal model
@@ -335,8 +336,8 @@ def main():
             RepresentationConfig(
                 0,  # layer
                 "block_output",  # intervention type
-                "pos",  # intervention unit is now aligne with tokens
-                1,  # max number of unit
+                "pos",  # intervention unit is now aligne with tokens; default though
+                2,  # max number of tokens to intervene on
                 subspace_partition=None,  # binary partition with equal sizes
                 intervention_link_key=0,
             )
@@ -348,8 +349,18 @@ def main():
             #     subspace_partition=None,  # binary partition with equal sizes,
             #     intervention_link_key=0,
             # ),
+            ### experiment --> with max number of unit and layer 
+            # RepresentationConfig(
+            #     0,  # layer
+            #     "block_output",  # intervention type
+            #     "pos",  # intervention unit is now aligne with tokens; default though
+            #     3,  # max number of tokens to intervene on
+            #     subspace_partition=None,  # binary partition with equal sizes
+            #     intervention_link_key=0,
+            # )
         ],
-        intervention_types=RotatedSpaceIntervention,
+        # intervention_types=RotatedSpaceIntervention,
+        intervention_types=VanillaIntervention,
     )
 
     intervenable = IntervenableModel(intervenable_config, model, use_fast=True)
@@ -415,13 +426,20 @@ def main():
                     [{"input_ids": batch["source_input_ids"][:, 0]}], # source, selecting all rows and only the values from the first column
                     {
                         "sources->base": (
-                            [[[0]] * batch_size], # each inner list is a reference to the same list object
-                            [[[0]] * batch_size],
+                            [[[0, 3]] * batch_size], # each inner list is a reference to the same list object
+                            [[[1, 4]] * batch_size], # 0 (source) --> 1 (base); 3 (source) --> 4 (base)
                         )
+                        # experiment
+                        # "sources->base": (
+                        #     [[[0, 1, 2]] * batch_size], # each inner list is a reference to the same list object
+                        #     [[[0, 1, 2]] * batch_size], # 0 (source) --> 1 (base); 3 (source) --> 4 (base)
+                        # )
                     }, # unit locations
-                    subspaces=[
-                        [[_ for _ in range(0, embedding_dim * 2)]] * batch_size
-                    ],
+
+                
+                    # subspaces=[
+                    #     [[_ for _ in range(0, embedding_dim * 0.5)]] * batch_size # taking half of the repr. and rotating it
+                    # ], # if you want to target the whole token repr => you don't even need to define it
                 )
 
             eval_metrics = compute_metrics(
