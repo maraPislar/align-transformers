@@ -359,8 +359,8 @@ def main():
             #     intervention_link_key=0,
             # )
         ],
-        # intervention_types=RotatedSpaceIntervention,
-        intervention_types=VanillaIntervention,
+        intervention_types=RotatedSpaceIntervention,
+        # intervention_types=VanillaIntervention,
     )
 
     intervenable = IntervenableModel(intervenable_config, model, use_fast=True)
@@ -373,17 +373,18 @@ def main():
     # target_total_step = len(dataset) * epochs
 
     # t_total = int(len(dataset) * epochs)
-    # optimizer_params = []
-    # for k, v in intervenable.interventions.items():
-    #     optimizer_params += [{"params": v[0].rotate_layer.parameters()}]
-    #     break
+    optimizer_params = []
+    for k, v in intervenable.interventions.items():
+        optimizer_params += [{"params": v[0].rotate_layer.parameters()}]
+        break
 
     # model.enable_model_gradients()
     # print("number of params:", model.count_parameters())
-    optimizer_params = []
-    for k, v in intervenable.interventions.items():
-        optimizer_params += [{"params": v[0].parameters()}]
-        break
+    # optimizer_params = []
+    # for k, v in intervenable.interventions.items():
+    #     optimizer_params += [{"params": v[0].parameters()}]
+    #     break
+    
     optimizer = torch.optim.Adam(optimizer_params, lr=0.001)
 
     print('generating data for DAS...')
@@ -433,8 +434,8 @@ def main():
                     [{"input_ids": batch["source_input_ids"][:, 0]}], # source, selecting all rows and only the values from the first column
                     {
                         "sources->base": (
-                            [[[0, 1, 2]] * batch_size], # each inner list is a reference to the same list object
-                            [[[0, 1, 2]] * batch_size], # 0 (source) --> 1 (base); 3 (source) --> 4 (base)
+                            [[[0]] * batch_size], # each inner list is a reference to the same list object
+                            [[[0]] * batch_size], # 0 (source) --> 1 (base); 3 (source) --> 4 (base)
                         )
                         # experiment
                         # "sources->base": (
