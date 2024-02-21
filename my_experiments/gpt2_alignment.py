@@ -373,10 +373,10 @@ def main():
     # target_total_step = len(dataset) * epochs
 
     # t_total = int(len(dataset) * epochs)
-    optimizer_params = []
-    for k, v in intervenable.interventions.items():
-        optimizer_params += [{"params": v[0].rotate_layer.parameters()}]
-        break
+    # optimizer_params = []
+    # for k, v in intervenable.interventions.items():
+    #     optimizer_params += [{"params": v[0].rotate_layer.parameters()}]
+    #     break
 
     model.enable_model_gradients()
     print("number of params:", model.count_parameters())
