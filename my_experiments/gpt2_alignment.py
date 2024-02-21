@@ -337,7 +337,7 @@ def main():
                 0,  # layer
                 "block_output",  # intervention type
                 "pos",  # intervention unit is now aligne with tokens; default though
-                2,  # max number of tokens to intervene on
+                1,  # max number of tokens to intervene on
                 subspace_partition=None,  # binary partition with equal sizes
                 intervention_link_key=0,
             )
@@ -433,8 +433,8 @@ def main():
                     [{"input_ids": batch["source_input_ids"][:, 0]}], # source, selecting all rows and only the values from the first column
                     {
                         "sources->base": (
-                            [[[0, 3]] * batch_size], # each inner list is a reference to the same list object
-                            [[[1, 4]] * batch_size], # 0 (source) --> 1 (base); 3 (source) --> 4 (base)
+                            [[[0]] * batch_size], # each inner list is a reference to the same list object
+                            [[[1]] * batch_size], # 0 (source) --> 1 (base); 3 (source) --> 4 (base)
                         )
                         # experiment
                         # "sources->base": (
