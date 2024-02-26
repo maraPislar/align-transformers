@@ -21,21 +21,6 @@ from pyvene import (
     VanillaIntervention
 )
 
-# generate the prompts given the inputs and outputs generated with the causal model
-def generate_sum_examples(inputs, labels):
-    prompts = []
-    answers = []
-    full_text = []
-
-    for sum_input, label in zip(inputs,labels):
-        prompt = f"{int(sum_input[0])}+{int(sum_input[1])}+{int(sum_input[2])}="
-        full_text.append(f"{prompt}{int(label.item())}")
-
-        prompts.append(prompt)
-        answers.append(str(int(label.item())))
-
-    return prompts, answers, full_text
-
 # sample such numbers to be fed into the task
 def input_sampler():
     A = randNum()
@@ -44,107 +29,18 @@ def input_sampler():
     # return f"{int(A)}+{int(B)}+{int(C)}="
     return {"X":A, "Y":B, "Z":C}
 
-# save all the data in a file for easier training of gpt2
-def generate_file(file_path, inputs, labels):
-
-    _, _, data = generate_sum_examples(inputs, labels)
-
-    # Open the file in write mode and write each string followed by a newline
-    with open(file_path, 'w') as file:
-        for string in data:
-            file.write(string + '\n')
-
-######## Helper functions ########
-
-def load_dataset(file_path, tokenizer, block_size = 128):
-    dataset = TextDataset(
-        tokenizer = tokenizer,
-        file_path = file_path,
-        block_size = block_size,
-    )
-    return dataset
-
-def load_data_collator(tokenizer, mlm = False):
-    data_collator = DataCollatorForLanguageModeling(
-        tokenizer=tokenizer, 
-        mlm=mlm,
-    )
-    return data_collator
-
 def load_model(model_path):
     model = GPT2Model.from_pretrained(model_path)
     return model
 
-
 def load_tokenizer(tokenizer_path):
-    tokenizer = GPT2Tokenizer.from_pretrained(tokenizer_path)
+    tokenizer = GPT2Tokenizer.from_pretrained(pretrained_model_name_or_path=tokenizer_path)
+    # default to left padding
+    tokenizer.padding_side = "left"
+    # Define PAD Token = EOS Token = 50256
+    tokenizer.pad_token = tokenizer.eos_token
+
     return tokenizer
-
-################ End ################
-
-# training function for gpt2
-def train(train_file_path,
-          model,
-          tokenizer,
-          output_dir,
-          overwrite_output_dir,
-          batch_size,
-          num_train_epochs):
-  
-    train_dataset = load_dataset(train_file_path, tokenizer)
-    data_collator = load_data_collator(tokenizer)
-
-    tokenizer.save_pretrained(output_dir)
-    model.save_pretrained(output_dir)
-    _ = model.train()
-
-    training_args = TrainingArguments(
-        output_dir=output_dir,
-        overwrite_output_dir=overwrite_output_dir,
-        per_device_train_batch_size=batch_size,
-        per_device_eval_batch_size=batch_size,
-        num_train_epochs=num_train_epochs,
-        evaluation_strategy="epoch",
-        learning_rate=0.001
-    )
-
-    trainer = Trainer(
-        model=model,
-        args=training_args,
-        data_collator=data_collator,
-        train_dataset=train_dataset,
-        eval_dataset=train_dataset
-    )
-        
-    _ = trainer.train()
-    trainer.save_model()
-
-def get_predicted_label(model, tokenizer, prompt_ids, max_length):
-    final_outputs = model.generate(
-        prompt_ids,
-        do_sample=True,
-        max_length=max_length,
-        pad_token_id=model.config.eos_token_id,
-        top_k=50,
-        top_p=0.95,
-    )
-    generated_text = tokenizer.decode(final_outputs[0], skip_special_tokens=True)
-    print(generated_text.strip())
-    # return generated_text[len(prompt_ids[0]):].strip()
-    return generated_text.split('=')[1].strip()
-
-def eval_finetuned_gpt2(model, tokenizer, prompts_ids, labels, num_examples=100):
-    _ = model.eval()
-    max_len=2
-    count = 0
-    for prompt_ids, label in zip(prompts_ids, labels):
-        pred_label = get_predicted_label(model, tokenizer, prompt_ids, max_len)
-        if pred_label == str(int(label.item())):
-            count += 1
-    if count > 0:
-        print(f"Accuracy is {count/num_examples}")
-    else:
-        print("Accuracy is 0.")
 
 def randNum(lower=1, upper=10):
     # tokenizer = load_tokenizer("/gpfs/home1/mpislar/align-transformers/result/")
@@ -156,7 +52,7 @@ def causal_model_1():
 
     variables =  ["X", "Y", "Z", "P", "O"]
     number_of_entities = 20
-    tokenizer = load_tokenizer("/gpfs/home1/mpislar/align-transformers/result/")
+    # tokenizer = load_tokenizer("/gpfs/home1/mpislar/align-transformers/result/")
 
     reps = [randNum() for _ in range(number_of_entities)]
     values = {variable:reps for variable in ["X", "Y", "Z"]}
@@ -264,70 +160,20 @@ def intervention_id(intervention):
     if "P" in intervention:
         return 0
 
-def train_gpt2(causal_model, n_examples):
-    _, tokenizer, gpt2 = pyvene.create_gpt2_lm()
-    tokenizer.pad_token = tokenizer.eos_token
-    _ = gpt2.to("cuda")
-
-    train_file_path = "/gpfs/home1/mpislar/align-transformers/my_experiments/sum_training_data/training_sums.txt"
-
-    # generate data for training gpt2
-    inputs, labels = causal_model.generate_factual_dataset(n_examples, input_sampler, inputFunction=tokenizePrompt)
-    generate_file(train_file_path, inputs, labels)
-
-    # train gpt2 on summing three numbers
-    output_dir = "/gpfs/home1/mpislar/align-transformers/result/"
-    overwrite_output_dir = False
-    batch_size = 64
-    num_train_epochs = 70
-
-    train(
-        train_file_path=train_file_path,
-        model=gpt2,
-        tokenizer=tokenizer,
-        output_dir=output_dir,
-        overwrite_output_dir=overwrite_output_dir,
-        batch_size=batch_size,
-        num_train_epochs=num_train_epochs
-    )
-
 def tokenizePrompt(prompt):
-    tokenizer = load_tokenizer("/gpfs/home1/mpislar/align-transformers/result/")
-    model = load_model("/gpfs/home1/mpislar/align-transformers/result/")
-    model.eval()
-    # prompt = f"{tokenizer.decode(prompt['X'].item(), skip_special_tokens=True)}+{tokenizer.decode(prompt['Y'].item(), skip_special_tokens=True)}+{tokenizer.decode(prompt['Z'].item(), skip_special_tokens=True)}="
-    prompt = f"{prompt['X']}+{prompt['Y']}+{prompt['Z']}=" # prompt for numerical causal model
+    tokenizer = load_tokenizer("gpt2")
+    prompt = f"{prompt['X']}+{prompt['Y']}+{prompt['Z']}="
     return tokenizer.encode(prompt, return_tensors='pt')
-    
-    # version 4
-    # inputs = tokenizer(prompt, return_tensors='pt')
-    # print(inputs)
-    # with torch.no_grad():
-    #     outputs = model(**inputs)
-    # embeddings, _ = outputs.past_key_values[-1]
-    # return embeddings
 
 def main():
 
-    n_examples = 1280000
+    n_examples = 100
     causal_model = causal_model_1()
-
-    # train gpt2
-    # train_gpt2(causal_model, n_examples)
+    test_causal_model = causal_model_1()
 
     # load the trained model
-    model_path = "/gpfs/home1/mpislar/align-transformers/result/"
+    model_path = ""
     model = load_model(model_path)
-    tokenizer = load_tokenizer(model_path)
-
-    print('evaluating...')
-
-    # generate data for testing if gpt2 has learnt the task well
-    n_examples = 100
-    test_causal_model = causal_model_1()
-    test_inputs, test_labels = test_causal_model.generate_factual_dataset(n_examples, input_sampler, inputFunction=tokenizePrompt)
-    # test_inputs, test_labels, _ = generate_sum_examples(test_inputs, test_labels) # convert back to prompt
-    # eval_finetuned_gpt2(model, tokenizer, test_inputs, test_labels, n_examples)
 
     # define intervention model
     intervenable_config = IntervenableConfig(
@@ -370,22 +216,27 @@ def main():
     epochs = 10
     gradient_accumulation_steps = 1
     total_step = 0
-    # target_total_step = len(dataset) * epochs
+
+    ###### For Rotation Intervention ######
 
     # t_total = int(len(dataset) * epochs)
     # optimizer_params = []
     # for k, v in intervenable.interventions.items():
     #     optimizer_params += [{"params": v[0].rotate_layer.parameters()}]
     #     break
-
     # model.enable_model_gradients()
     # print("number of params:", model.count_parameters())
+
+    ###### For Vanilla Intervention #######
+
     optimizer_params = []
     for k, v in intervenable.interventions.items():
         optimizer_params += [{"params": v[0].parameters()}]
         break
 
     optimizer = torch.optim.Adam(optimizer_params, lr=0.001)
+
+    #######################################
 
     print('generating data for DAS...')
 
@@ -451,18 +302,16 @@ def main():
                 )
 
             print(counterfactual_outputs[0].argmax(1))
-            print(counterfactual_outputs[0].argmax(1).squeeze())
             print(batch["labels"].squeeze())
             print(counterfactual_outputs[0])
-            print(counterfactual_outputs[0].squeeze())
 
             eval_metrics = compute_metrics(
-                counterfactual_outputs[0].argmax(1).squeeze(), batch["labels"].squeeze()
+                counterfactual_outputs[0].argmax(1), batch["labels"].squeeze()
             )
 
             # loss and backprop
             loss = compute_loss(
-                counterfactual_outputs[0].squeeze(), batch["labels"].squeeze()
+                counterfactual_outputs[0], batch["labels"].squeeze()
             )
 
             epoch_iterator.set_postfix({"loss": loss, "acc": eval_metrics["accuracy"]})
@@ -493,18 +342,41 @@ def main():
             batch["source_input_ids"] = batch["source_input_ids"].unsqueeze(2)
 
             if batch["intervention_id"][0] == 0:
+                # What was here before:
+                # _, counterfactual_outputs = intervenable(
+                #     {"inputs_embeds": batch["input_ids"]},
+                #     [{"inputs_embeds": batch["source_input_ids"][:, 0]}],
+                #     {
+                #         "sources->base": (
+                #             [[[0]] * batch_size],
+                #             [[[0]] * batch_size],
+                #         )
+                #     },
+                #     subspaces=[
+                #         [[_ for _ in range(0, embedding_dim * 2)]] * batch_size
+                #     ],
+                # )
+
+                ##### What is here now: the names of the keys are changes #####
                 _, counterfactual_outputs = intervenable(
-                    {"inputs_embeds": batch["input_ids"]},
-                    [{"inputs_embeds": batch["source_input_ids"][:, 0]}],
+                    {"input_ids": batch["input_ids"]}, # base
+                    [{"input_ids": batch["source_input_ids"][:, 0]}], # source, selecting all rows and only the values from the first column
                     {
                         "sources->base": (
-                            [[[0]] * batch_size],
-                            [[[0]] * batch_size],
+                            [[[0]] * batch_size], # each inner list is a reference to the same list object
+                            [[[0]] * batch_size], # 0 (source) --> 1 (base); 3 (source) --> 4 (base)
                         )
-                    },
-                    subspaces=[
-                        [[_ for _ in range(0, embedding_dim * 2)]] * batch_size
-                    ],
+                        # experiment
+                        # "sources->base": (
+                        #     [[[0, 1, 2]] * batch_size], # each inner list is a reference to the same list object
+                        #     [[[0, 1, 2]] * batch_size], # 0 (source) --> 1 (base); 3 (source) --> 4 (base)
+                        # )
+                    }, # unit locations
+
+                
+                    # subspaces=[
+                    #     [[_ for _ in range(0, embedding_dim * 0.5)]] * batch_size # taking half of the repr. and rotating it
+                    # ], # if you want to target the whole token repr => you don't even need to define it
                 )
             
             eval_labels += [batch["labels"]]
