@@ -3,7 +3,6 @@ sys.path.append(os.path.join('..', '..'))
 
 import torch
 import random
-from transformers import GPT2Tokenizer, GPT2Config, GPT2ForSequenceClassification, AdamW
 from sklearn.metrics import classification_report
 from pyvene import CausalModel
 from datetime import datetime
