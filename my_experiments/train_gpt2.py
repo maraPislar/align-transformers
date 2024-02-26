@@ -107,9 +107,8 @@ def train(model, dataloader, optimizer, scheduler, device):
     # Return all true labels and prediction for future evaluations.
     return true_labels, predictions_labels, avg_epoch_loss
 
-def validation(dataloader, device_):
+def validation(dataloader, model, device_):
 
-    global model
     model.eval()
 
     predictions_labels = []
@@ -224,7 +223,7 @@ def main():
 
         # validation step
         print('Validation on batches...')
-        valid_labels, valid_predict, val_loss = validation(val_ds, device)
+        valid_labels, valid_predict, val_loss = validation(val_ds, model, device)
         val_acc = accuracy_score(valid_labels, valid_predict)
 
         # Print loss and accuracy values to see how training evolves.
@@ -238,7 +237,8 @@ def main():
         all_acc['val_acc'].append(val_acc)
 
     # testing phase
-    true_labels, predictions_labels, avg_epoch_loss = validation(test_ds, device)
+    true_labels, predictions_labels, avg_epoch_loss = validation(test_ds, model, device)
+    print(f"Average epoch loss on test_ds: {avg_epoch_loss}")
     evaluation_report = classification_report(true_labels, predictions_labels, labels=list(val_labels.squeeze()))
     print(evaluation_report)
 
