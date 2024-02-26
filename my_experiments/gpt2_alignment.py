@@ -1,13 +1,9 @@
 import sys, os
 sys.path.append(os.path.join('..', '..'))
 
-import pyvene
-from transformers import Trainer, TrainingArguments
-from transformers import TextDataset, DataCollatorForLanguageModeling
-from transformers import GPT2LMHeadModel, GPT2Tokenizer, GPT2Model
+from transformers import GPT2Tokenizer, GPT2Model
 from sklearn.metrics import classification_report
 from pyvene import CausalModel
-import numpy as np
 from tqdm import tqdm, trange
 import torch
 from torch.utils.data import DataLoader
