@@ -9,7 +9,6 @@ from pyvene import CausalModel
 from datetime import datetime
 from datasets import Dataset
 from tqdm.notebook import tqdm
-from torch.utils.data import Dataset
 from ml_things import plot_dict
 from sklearn.metrics import classification_report, accuracy_score
 from transformers import (set_seed,
