@@ -19,7 +19,6 @@ from transformers import (set_seed,
                           get_linear_schedule_with_warmup,
                           GPT2ForSequenceClassification)
 
-
 def randNum(lower=1, upper=10):
     number = random.randint(lower, upper)
     return number
