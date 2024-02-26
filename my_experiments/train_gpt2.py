@@ -149,6 +149,7 @@ def main():
     min_class_value = 3
     n_training = 100
     n_validation = 100
+    n_testing = 100
 
     # Sequence Classification with GPT2 n_labels=28
     n_labels = 28 # 3 -..-> 31
@@ -160,7 +161,7 @@ def main():
     causal_model = get_causal_model()
     train_inputs, train_labels = causal_model.generate_factual_dataset(n_training, input_sampler, inputFunction=tokenizePrompt)
     val_inputs, val_labels = causal_model.generate_factual_dataset(n_validation, input_sampler, inputFunction=tokenizePrompt)
-    test_inputs, test_labels = causal_model.generate_factual_dataset(n_validation, input_sampler, inputFunction=tokenizePrompt)
+    test_inputs, test_labels = causal_model.generate_factual_dataset(n_testing, input_sampler, inputFunction=tokenizePrompt)
 
     train_ds = Dataset.from_dict(
         {
