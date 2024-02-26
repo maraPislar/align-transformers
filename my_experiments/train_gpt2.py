@@ -179,7 +179,7 @@ def main():
     test_ds = Dataset.from_dict(
         {
             "labels": test_labels - min_class_value,
-            "inputs_ids": test_inputs
+            "input_ids": test_inputs
         }
     )
 
