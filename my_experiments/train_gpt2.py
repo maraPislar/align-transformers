@@ -83,7 +83,6 @@ def train(model, dataloader, optimizer, scheduler, device):
         true_labels += batch['labels'] # used later for eval
         batch = {k:torch.tensor(v).type(torch.long).to(device) for k,v in batch.items()} # move to device
 
-
         model.zero_grad()
         outputs = model(**batch)
         loss, logits = outputs[:2] # probs has to be n_labels?
@@ -98,7 +97,6 @@ def train(model, dataloader, optimizer, scheduler, device):
 
         optimizer.step()
         scheduler.step() # scheduler for the learnign rate
-
 
         logits = logits.detach().cpu().numpy()
         predictions_labels += logits.argmax(axis=-1).flatten().tolist()
@@ -162,6 +160,7 @@ def main():
     causal_model = get_causal_model()
     train_inputs, train_labels = causal_model.generate_factual_dataset(n_training, input_sampler, inputFunction=tokenizePrompt)
     val_inputs, val_labels = causal_model.generate_factual_dataset(n_validation, input_sampler, inputFunction=tokenizePrompt)
+    test_inputs, test_labels = causal_model.generate_factual_dataset(n_validation, input_sampler, inputFunction=tokenizePrompt)
 
     train_ds = Dataset.from_dict(
         {
@@ -174,6 +173,13 @@ def main():
         {
             "labels": val_labels - min_class_value,
             "input_ids": val_inputs,
+        }
+    )
+
+    test_ds = Dataset.from_dict(
+        {
+            "labels": test_labels - min_class_value,
+            "inputs_ids": test_inputs
         }
     )
 
@@ -231,7 +237,7 @@ def main():
         all_acc['val_acc'].append(val_acc)
 
     # testing phase
-    true_labels, predictions_labels, avg_epoch_loss = validation(val_ds, device)
+    true_labels, predictions_labels, avg_epoch_loss = validation(test_ds, device)
     evaluation_report = classification_report(true_labels, predictions_labels, labels=list(val_labels.squeeze()))
     print(evaluation_report)
 
