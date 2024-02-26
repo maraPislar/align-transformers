@@ -1,13 +1,15 @@
 import sys, os
 sys.path.append(os.path.join('..', '..'))
 
-from transformers import GPT2Tokenizer, GPT2Model
 from sklearn.metrics import classification_report
 from pyvene import CausalModel
 from tqdm import tqdm, trange
 import torch
 from torch.utils.data import DataLoader
 import random
+
+from transformers import (GPT2Tokenizer,
+                          GPT2ForSequenceClassification)
 
 from pyvene import (
     IntervenableModel,
@@ -25,7 +27,7 @@ def input_sampler():
     return {"X":A, "Y":B, "Z":C}
 
 def load_model(model_path):
-    model = GPT2Model.from_pretrained(model_path)
+    model = GPT2ForSequenceClassification.from_pretrained(model_path)
     return model
 
 def load_tokenizer(tokenizer_path):
@@ -160,7 +162,7 @@ def main():
     test_causal_model = causal_model_1()
 
     # load the trained model
-    model_path = ""
+    model_path = "/gpfs/home1/mpislar/trained_gpt2.pth"
     model = load_model(model_path)
 
     # define intervention model
