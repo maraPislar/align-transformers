@@ -26,7 +26,6 @@ def input_sampler():
     A = randNum()
     B = randNum()
     C = randNum()
-    # return f"{int(A)}+{int(B)}+{int(C)}="
     return {"X":A, "Y":B, "Z":C}
 
 def load_model(model_path):
@@ -43,16 +42,13 @@ def load_tokenizer(tokenizer_path):
     return tokenizer
 
 def randNum(lower=1, upper=10):
-    # tokenizer = load_tokenizer("/gpfs/home1/mpislar/align-transformers/result/")
     number = random.randint(lower, upper)
-    # return tokenizer.encode(f'{number}', return_tensors='pt')
     return number
 
 def causal_model_1():
 
     variables =  ["X", "Y", "Z", "P", "O"]
     number_of_entities = 20
-    # tokenizer = load_tokenizer("/gpfs/home1/mpislar/align-transformers/result/")
 
     reps = [randNum() for _ in range(number_of_entities)]
     values = {variable:reps for variable in ["X", "Y", "Z"]}
@@ -65,10 +61,6 @@ def causal_model_1():
 
     def FILLER():
         return reps[0]
-
-    # functions = {"X":FILLER, "Y":FILLER, "Z":FILLER,
-    #             "P": lambda x, y: int(tokenizer.decode(x[0], skip_special_tokens=True).split()[0]) + int(tokenizer.decode(y[0], skip_special_tokens=True).split()[0]),
-    #             "O": lambda x, y: x + int(tokenizer.decode(y[0], skip_special_tokens=True).split()[0])}
     
     functions = {"X":FILLER, "Y":FILLER, "Z":FILLER,
                 "P": lambda x, y: x + y,
