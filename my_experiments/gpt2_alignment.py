@@ -159,13 +159,16 @@ def tokenizePrompt(prompt):
 
 def main():
 
-    n_examples = 100 # 128000
     causal_model = causal_model_1()
     test_causal_model = causal_model_1()
 
     # load the trained model
-    model_path = "/home/mpislar/align-transformers/my_experiments/trained_gpt2"
+    model_path = "/home/mpislar/align-transformers/my_experiments/no_padding_trained_gpt"
     model = load_model(model_path)
+    tokenizer = load_tokenizer('gpt2')
+
+    model.resize_token_embeddings(len(tokenizer))
+    model.config.pad_token_id = model.config.eos_token_id
 
     # define intervention model
     intervenable_config = IntervenableConfig(
@@ -175,7 +178,7 @@ def main():
                 0,  # layer
                 "block_output",  # intervention type
                 "pos",  # intervention unit is now aligne with tokens; default though
-                1,  # max number of tokens to intervene on
+                2,  # max number of tokens to intervene on
                 subspace_partition=None,  # binary partition with equal sizes
                 intervention_link_key=0,
             )
@@ -197,8 +200,8 @@ def main():
             #     intervention_link_key=0,
             # )
         ],
-        # intervention_types=RotatedSpaceIntervention,
-        intervention_types=VanillaIntervention,
+        intervention_types=RotatedSpaceIntervention,
+        # intervention_types=VanillaIntervention,
     )
 
     intervenable = IntervenableModel(intervenable_config, model, use_fast=True)
@@ -212,19 +215,19 @@ def main():
     ###### For Rotation Intervention ######
 
     # t_total = int(len(dataset) * epochs)
-    # optimizer_params = []
-    # for k, v in intervenable.interventions.items():
-    #     optimizer_params += [{"params": v[0].rotate_layer.parameters()}]
-    #     break
+    optimizer_params = []
+    for k, v in intervenable.interventions.items():
+        optimizer_params += [{"params": v[0].rotate_layer.parameters()}]
+        break
     # model.enable_model_gradients()
     # print("number of params:", model.count_parameters())
 
     ###### For Vanilla Intervention #######
 
-    optimizer_params = []
-    for k, v in intervenable.interventions.items():
-        optimizer_params += [{"params": v[0].parameters()}]
-        break
+    # optimizer_params = []
+    # for k, v in intervenable.interventions.items():
+    #     optimizer_params += [{"params": v[0].parameters()}]
+    #     break
 
     optimizer = torch.optim.Adam(optimizer_params, lr=0.001)
 
@@ -232,8 +235,8 @@ def main():
 
     print('generating data for DAS...')
 
-    n_examples = 12800
-    batch_size = 64
+    n_examples = 128
+    batch_size = 32
 
     train_dataset = causal_model.generate_counterfactual_dataset(
         n_examples,
@@ -272,13 +275,14 @@ def main():
                     batch[k] = v.to("cuda")
 
             if batch["intervention_id"][0] == 0:
+                print(batch["source_input_ids"][:, 0])
                 _, counterfactual_outputs = intervenable(
                     {"input_ids": batch["input_ids"]}, # base
                     [{"input_ids": batch["source_input_ids"][:, 0]}], # source, selecting all rows and only the values from the first column
                     {
                         "sources->base": (
-                            [[[0]] * batch_size], # each inner list is a reference to the same list object
-                            [[[0]] * batch_size], # 0 (source) --> 1 (base); 3 (source) --> 4 (base)
+                            [[[0, 1]] * batch_size], # each inner list is a reference to the same list object
+                            [[[3, 4]] * batch_size], # 0 (source) --> 1 (base); 3 (source) --> 4 (base)
                         )
                         # experiment
                         # "sources->base": (
@@ -292,10 +296,6 @@ def main():
                     #     [[_ for _ in range(0, embedding_dim * 0.5)]] * batch_size # taking half of the repr. and rotating it
                     # ], # if you want to target the whole token repr => you don't even need to define it
                 )
-
-            print(counterfactual_outputs[0].argmax(1))
-            print(batch["labels"].squeeze())
-            print(counterfactual_outputs[0])
 
             eval_metrics = compute_metrics(
                 counterfactual_outputs[0].argmax(1), batch["labels"].squeeze()
@@ -355,8 +355,8 @@ def main():
                     [{"input_ids": batch["source_input_ids"][:, 0]}], # source, selecting all rows and only the values from the first column
                     {
                         "sources->base": (
-                            [[[0]] * batch_size], # each inner list is a reference to the same list object
-                            [[[0]] * batch_size], # 0 (source) --> 1 (base); 3 (source) --> 4 (base)
+                            [[[0, 1]] * batch_size], # each inner list is a reference to the same list object
+                            [[[3, 4]] * batch_size], # 0 (source) --> 1 (base); 3 (source) --> 4 (base)
                         )
                         # experiment
                         # "sources->base": (
