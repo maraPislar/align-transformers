@@ -9,6 +9,7 @@ from torch.utils.data import DataLoader
 import random
 
 from transformers import (GPT2Tokenizer,
+                          GPT2Config,
                           GPT2ForSequenceClassification)
 
 from pyvene import (
@@ -27,7 +28,8 @@ def input_sampler():
     return {"X":A, "Y":B, "Z":C}
 
 def load_model(model_path):
-    model = GPT2ForSequenceClassification.from_pretrained(model_path)
+    model_config = GPT2Config.from_pretrained(model_path)
+    model = GPT2ForSequenceClassification.from_pretrained(model_path, config=model_config)
     return model
 
 def load_tokenizer(tokenizer_path):
@@ -157,12 +159,12 @@ def tokenizePrompt(prompt):
 
 def main():
 
-    n_examples = 100
+    n_examples = 100 # 128000
     causal_model = causal_model_1()
     test_causal_model = causal_model_1()
 
     # load the trained model
-    model_path = "/gpfs/home1/mpislar/trained_gpt2.pth"
+    model_path = "/home/mpislar/align-transformers/my_experiments/trained_gpt2"
     model = load_model(model_path)
 
     # define intervention model
