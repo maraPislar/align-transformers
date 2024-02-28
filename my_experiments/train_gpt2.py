@@ -138,16 +138,16 @@ def validation(dataloader, model, device_):
 def main():
 
     # set general parameters
-    set_seed(123)
-    epochs = 4
+    # set_seed(123)
+    epochs = 70
     batch_size = 32
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model_name_or_path = 'gpt2'
     n_labels = 28
     min_class_value = 3
-    n_training = 100
-    n_validation = 100
-    n_testing = 100
+    n_training = 128000
+    n_validation = 1000
+    n_testing = 1000
 
     # Sequence Classification with GPT2 n_labels=28
     n_labels = 28 # 3 -..-> 31
@@ -246,7 +246,9 @@ def main():
     plot_dict(all_loss, use_xlabel='Epochs', use_ylabel='Value', use_linestyles=['-', '--'], path=f'losses_{current_time.strftime("%Y%m%d_%H%M%S")[:-3]}.png')
     plot_dict(all_acc, use_xlabel='Epochs', use_ylabel='Value', use_linestyles=['-', '--'], path=f'accuracies_{current_time.strftime("%Y%m%d_%H%M%S")[:-3]}.png')
 
-    torch.save(model.state_dict(), "trained_gpt2.pth")
+    model_config = model.config
+    model_config.save_pretrained("/home/mpislar/align-transformers/my_experiments/better_trained_gpt2")
+    model.save_pretrained("/home/mpislar/align-transformers/my_experiments/better_trained_gpt2")
    
 if __name__ =="__main__":
     main()
