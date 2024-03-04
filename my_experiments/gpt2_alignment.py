@@ -27,21 +27,20 @@ def input_sampler():
     C = randNum()
     return {"X":A, "Y":B, "Z":C}
 
-def load_model(model_path):
-    model_config = GPT2Config.from_pretrained(model_path)
-    model = GPT2ForSequenceClassification.from_pretrained(model_path, config=model_config)
-    return model
-
 def load_tokenizer(tokenizer_path):
     tokenizer = GPT2Tokenizer.from_pretrained(pretrained_model_name_or_path=tokenizer_path)
     # default to left padding
-    tokenizer.padding_side = "left"
+    # tokenizer.padding_side = "left"
     # Define PAD Token = EOS Token = 50256
     tokenizer.pad_token = tokenizer.eos_token
 
     return tokenizer
 
-def randNum(lower=1, upper=10):
+# def randNum(lower=1, upper=10):
+#     number = random.randint(lower, upper)
+#     return number
+
+def randNum(lower=1, upper=9):
     number = random.randint(lower, upper)
     return number
 
@@ -138,6 +137,7 @@ def compute_metrics(eval_preds, eval_labels):
 
 def compute_loss(outputs, labels):
     CE = torch.nn.CrossEntropyLoss()
+    labels = labels.long()
     return CE(outputs, labels)
 
 
@@ -155,20 +155,24 @@ def intervention_id(intervention):
 def tokenizePrompt(prompt):
     tokenizer = load_tokenizer("gpt2")
     prompt = f"{prompt['X']}+{prompt['Y']}+{prompt['Z']}="
-    return tokenizer.encode(prompt, return_tensors='pt')
+    return tokenizer.encode(prompt, padding=True, return_tensors='pt')
 
 def main():
+
+    min_class_value = 3
 
     causal_model = causal_model_1()
     test_causal_model = causal_model_1()
 
     # load the trained model
-    model_path = "/home/mpislar/align-transformers/my_experiments/no_padding_trained_gpt"
-    model = load_model(model_path)
+    model_path = "/home/mpislar/align-transformers/my_experiments/no_padding"
     tokenizer = load_tokenizer('gpt2')
+    model_config = GPT2Config.from_pretrained(model_path)
+    model_config.pad_token_id = tokenizer.pad_token_id
+    model = GPT2ForSequenceClassification.from_pretrained(model_path, config=model_config)
 
-    model.resize_token_embeddings(len(tokenizer))
-    model.config.pad_token_id = model.config.eos_token_id
+    # model.resize_token_embeddings(len(tokenizer))
+    # model.config.pad_token_id = model.config.eos_token_id
 
     # define intervention model
     intervenable_config = IntervenableConfig(
@@ -177,10 +181,10 @@ def main():
             RepresentationConfig(
                 0,  # layer
                 "block_output",  # intervention type
-                "pos",  # intervention unit is now aligne with tokens; default though
-                2,  # max number of tokens to intervene on
-                subspace_partition=None,  # binary partition with equal sizes
-                intervention_link_key=0,
+                # "pos",  # intervention unit is now aligne with tokens; default though
+                # 1,  # max number of tokens to intervene on
+                # subspace_partition=None,  # binary partition with equal sizes
+                # intervention_link_key=0,
             )
             # RepresentationConfig(
             #     0,  # layer
@@ -267,22 +271,21 @@ def main():
             leave=True,
         )
         for batch in epoch_iterator:
-            batch["input_ids"] = batch["input_ids"].unsqueeze(1)
-            batch["source_input_ids"] = batch["source_input_ids"].unsqueeze(2)
+            batch["input_ids"] = batch["input_ids"].squeeze()
+            batch["source_input_ids"] = batch["source_input_ids"].squeeze(2)
             batch_size = batch["input_ids"].shape[0]
             for k, v in batch.items():
                 if v is not None and isinstance(v, torch.Tensor):
                     batch[k] = v.to("cuda")
 
             if batch["intervention_id"][0] == 0:
-                print(batch["source_input_ids"][:, 0])
                 _, counterfactual_outputs = intervenable(
                     {"input_ids": batch["input_ids"]}, # base
                     [{"input_ids": batch["source_input_ids"][:, 0]}], # source, selecting all rows and only the values from the first column
                     {
                         "sources->base": (
-                            [[[0, 1]] * batch_size], # each inner list is a reference to the same list object
-                            [[[3, 4]] * batch_size], # 0 (source) --> 1 (base); 3 (source) --> 4 (base)
+                            [[[0]] * batch_size], # each inner list is a reference to the same list object
+                            [[[0]] * batch_size], # 0 (source) --> 1 (base); 3 (source) --> 4 (base)
                         )
                         # experiment
                         # "sources->base": (
@@ -290,21 +293,30 @@ def main():
                         #     [[[0, 1, 2]] * batch_size], # 0 (source) --> 1 (base); 3 (source) --> 4 (base)
                         # )
                     }, # unit locations
-
                 
-                    # subspaces=[
-                    #     [[_ for _ in range(0, embedding_dim * 0.5)]] * batch_size # taking half of the repr. and rotating it
-                    # ], # if you want to target the whole token repr => you don't even need to define it
+                    subspaces=[
+                        [[_ for _ in range(0, embedding_dim)]] * batch_size # taking half of the repr. and rotating it
+                    ], # if you want to target the whole token repr => you don't even need to define it
                 )
 
+            # print(counterfactual_outputs[0].argmax(1))
+            # print(batch["labels"].squeeze() - min_class_value)
+
             eval_metrics = compute_metrics(
-                counterfactual_outputs[0].argmax(1), batch["labels"].squeeze()
+                counterfactual_outputs[0].argmax(1), batch["labels"].squeeze() - min_class_value
             )
+
+            # print(counterfactual_outputs[0])
+            # print(counterfactual_outputs[0].shape)
+            # print(batch["labels"])
 
             # loss and backprop
             loss = compute_loss(
-                counterfactual_outputs[0], batch["labels"].squeeze()
+                counterfactual_outputs[0], batch["labels"].squeeze() - min_class_value
             )
+
+            print(loss)
+            print(eval_metrics)
 
             epoch_iterator.set_postfix({"loss": loss, "acc": eval_metrics["accuracy"]})
 
@@ -319,7 +331,7 @@ def main():
     # test DAS
 
     test_dataset = test_causal_model.generate_counterfactual_dataset(
-        10000, intervention_id, batch_size, device="cuda:0", sampler=input_sampler, inputFunction=tokenizePrompt
+        100, intervention_id, batch_size, device="cuda:0", sampler=input_sampler, inputFunction=tokenizePrompt
     )
 
     eval_labels = []
@@ -330,8 +342,8 @@ def main():
             for k, v in batch.items():
                 if v is not None and isinstance(v, torch.Tensor):
                     batch[k] = v.to("cuda")
-            batch["input_ids"] = batch["input_ids"].unsqueeze(1)
-            batch["source_input_ids"] = batch["source_input_ids"].unsqueeze(2)
+            batch["input_ids"] = batch["input_ids"].squeeze()
+            batch["source_input_ids"] = batch["source_input_ids"].squeeze(2)
 
             if batch["intervention_id"][0] == 0:
                 # What was here before:
@@ -355,8 +367,8 @@ def main():
                     [{"input_ids": batch["source_input_ids"][:, 0]}], # source, selecting all rows and only the values from the first column
                     {
                         "sources->base": (
-                            [[[0, 1]] * batch_size], # each inner list is a reference to the same list object
-                            [[[3, 4]] * batch_size], # 0 (source) --> 1 (base); 3 (source) --> 4 (base)
+                            [[[0]] * batch_size], # each inner list is a reference to the same list object
+                            [[[0]] * batch_size], # 0 (source) --> 1 (base); 3 (source) --> 4 (base)
                         )
                         # experiment
                         # "sources->base": (
@@ -366,12 +378,12 @@ def main():
                     }, # unit locations
 
                 
-                    # subspaces=[
-                    #     [[_ for _ in range(0, embedding_dim * 0.5)]] * batch_size # taking half of the repr. and rotating it
-                    # ], # if you want to target the whole token repr => you don't even need to define it
+                    subspaces=[
+                        [[_ for _ in range(0, embedding_dim * 0.5)]] * batch_size # taking half of the repr. and rotating it
+                    ], # if you want to target the whole token repr => you don't even need to define it
                 )
             
-            eval_labels += [batch["labels"]]
+            eval_labels += [batch["labels"].squeeze() - min_class_value]
             eval_preds += [torch.argmax(counterfactual_outputs[0], dim=1)]
     print(classification_report(torch.cat(eval_labels).cpu(), torch.cat(eval_preds).cpu()))
 
