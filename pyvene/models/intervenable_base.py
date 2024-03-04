@@ -300,7 +300,17 @@ class IntervenableModel(nn.Module):
             if isinstance(v[0], TrainableIntervention):
                 ret_params += [p for p in v[0].parameters()]
         return ret_params
-
+    
+    def named_parameters(self, recurse=True):
+        """
+        The above, but for HuggingFace.
+        """
+        ret_params = []
+        for k, v in self.interventions.items():
+            if isinstance(v[0], TrainableIntervention):
+                ret_params += [(k + '.' + n, p) for n, p in v[0].named_parameters()]
+        return ret_params
+    
     def get_cached_activations(self):
         """
         Return the cached activations with keys
@@ -389,6 +399,14 @@ class IntervenableModel(nn.Module):
             if isinstance(v[0], TrainableIntervention):
                 v[0].zero_grad()
 
+    def zero_grad(self):
+        """
+        The above, but for HuggingFace.
+        """
+        for k, v in self.interventions.items():
+            if isinstance(v[0], TrainableIntervention):
+                v[0].zero_grad()
+    
     def save(
         self, save_directory, save_to_hf_hub=False, hf_repo_name="my-awesome-model"
     ):
@@ -1640,8 +1658,14 @@ class IntervenableModel(nn.Module):
                 )
 
         return batched_location_dict
+    
+    def train(self):
+        self.model.train()
+    
+    def eval(self):
+        self.model.eval()
 
-    def train(
+    def train_alignment(
         self,
         train_dataloader,
         compute_loss,
@@ -1732,7 +1756,7 @@ class IntervenableModel(nn.Module):
                         self.set_temperature(temperature_schedule[total_step])
                 total_step += 1
 
-    def evaluate(
+    def eval_alignment(
         self,
         eval_dataloader,
         compute_metrics,
