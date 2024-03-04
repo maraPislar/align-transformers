@@ -17,9 +17,11 @@ from transformers import (set_seed,
                           get_linear_schedule_with_warmup,
                           GPT2ForSequenceClassification)
 
-from transformers import GPT2LMForSequenceClassification
+# def randNum(lower=1, upper=10):
+#     number = random.randint(lower, upper)
+#     return number
 
-def randNum(lower=1, upper=10):
+def randNum(lower=1, upper=9):
     number = random.randint(lower, upper)
     return number
 
@@ -145,17 +147,18 @@ def main():
     batch_size = 32
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model_name_or_path = 'gpt2'
-    n_labels = 28
+    # n_labels = 28
     min_class_value = 3
     n_training = 128 # 128000
     n_validation = 100 # 1000
     n_testing = 100 # 1000
 
     # Sequence Classification with GPT2 n_labels=28
-    n_labels = 28 # 3 -..-> 31
+    # n_labels = 28 # 3 -..-> 31 
+    n_labels = 25 # 3 - ..-> 27
     model_config = GPT2Config.from_pretrained(pretrained_model_name_or_path=model_name_or_path, num_labels=n_labels)
-    # model = GPT2ForSequenceClassification.from_pretrained(pretrained_model_name_or_path=model_name_or_path, config=model_config)
-    model = GPT2LMForSequenceClassification.from_pretrained(model_name_or_path, config=model_config, cache_dir=None)
+    model = GPT2ForSequenceClassification.from_pretrained(pretrained_model_name_or_path=model_name_or_path, config=model_config)
+    # model = GPT2LMForSequenceClassification.from_pretrained(model_name_or_path, config=model_config, cache_dir=None)
     tokenizer = load_tokenizer(model_name_or_path)
 
     # generate training and validation data
@@ -186,10 +189,10 @@ def main():
     )
 
     # resize model embedding to match new tokenizer
-    model.resize_token_embeddings(len(tokenizer))
+    # model.resize_token_embeddings(len(tokenizer))
 
     # fix model padding token id
-    model.config.pad_token_id = model.config.eos_token_id
+    # model.config.pad_token_id = model.config.eos_token_id
 
     # Load model to defined device.
     model.to(device)
@@ -249,8 +252,13 @@ def main():
     plot_dict(all_loss, use_xlabel='Epochs', use_ylabel='Value', use_linestyles=['-', '--'], path=f'losses_{current_time.strftime("%Y%m%d_%H%M%S")[:-3]}.png')
     plot_dict(all_acc, use_xlabel='Epochs', use_ylabel='Value', use_linestyles=['-', '--'], path=f'accuracies_{current_time.strftime("%Y%m%d_%H%M%S")[:-3]}.png')
 
-    model_config.save_pretrained("/home/mpislar/align-transformers/my_experiments/no_padding_trained_gpt")
-    model.save_pretrained("/home/mpislar/align-transformers/my_experiments/no_padding_trained_gpt")
+    model_config.save_pretrained("/home/mpislar/align-transformers/my_experiments/no_padding")
+    model.save_pretrained("/home/mpislar/align-transformers/my_experiments/no_padding")
    
 if __name__ =="__main__":
     main()
+
+
+### Check with single character inputs --> (1..9) 
+    # change in the causal model the way data is generated
+    # 0 padding?
