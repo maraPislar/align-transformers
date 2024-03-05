@@ -30,17 +30,13 @@ def input_sampler():
 def load_tokenizer(tokenizer_path):
     tokenizer = GPT2Tokenizer.from_pretrained(pretrained_model_name_or_path=tokenizer_path)
     # default to left padding
-    # tokenizer.padding_side = "left"
+    tokenizer.padding_side = "left"
     # Define PAD Token = EOS Token = 50256
     tokenizer.pad_token = tokenizer.eos_token
 
     return tokenizer
 
-# def randNum(lower=1, upper=10):
-#     number = random.randint(lower, upper)
-#     return number
-
-def randNum(lower=1, upper=9):
+def randNum(lower=1, upper=10):
     number = random.randint(lower, upper)
     return number
 
@@ -64,60 +60,6 @@ def causal_model_1():
     functions = {"X":FILLER, "Y":FILLER, "Z":FILLER,
                 "P": lambda x, y: x + y,
                 "O": lambda x, y: x + y}
-
-    pos = {"X":(1,0.1), "Y":(2,0.2), "Z":(2.8,0), 
-            "P":(1,2),
-            "O":(1.5,3)}
-
-    return CausalModel(variables, values, parents, functions, pos = pos)
-
-def causal_model_2():
-    
-    variables =  ["X", "Y", "Z", "P", "O"]
-    number_of_entities = 20
-
-    reps = [randNum() for _ in range(number_of_entities)]
-    values = {variable:reps for variable in ["X", "Y", "Z"]}
-    values["P"] = list(range(2, 21))
-    values["O"] = list(range(3, 31))
-
-    parents = {"X":[], "Y":[], "Z":[], 
-            "P":["Y", "Z"],
-            "O":["X", "P"]}
-
-    def FILLER():
-        return reps[0]
-
-    functions = {"X":FILLER, "Y":FILLER, "Z":FILLER, 
-                "P": lambda x,y: x+y,
-                "O": lambda x,y: x+y}
-
-    pos = {"X":(1,0.1), "Y":(2,0.2), "Z":(2.8,0), 
-            "P":(2,1),
-            "O":(1.5,3)}
-
-    return CausalModel(variables, values, parents, functions, pos = pos)
-
-def causal_model_3():
-    
-    variables =  ["X", "Y", "Z", "P", "O"]
-    number_of_entities = 20
-
-    reps = [randNum() for _ in range(number_of_entities)]
-    values = {variable:reps for variable in ["X", "Y", "Z"]}
-    values["P"] = list(range(2, 21))
-    values["O"] = list(range(3, 31))
-
-    parents = {"X":[], "Y":[], "Z":[], 
-            "P":["X", "Z"],
-            "O":["P", "Y"]}
-
-    def FILLER():
-        return reps[0]
-
-    functions = {"X":FILLER, "Y":FILLER, "Z":FILLER, 
-                "P": lambda x,y: x+y,
-                "O": lambda x,y: x+y}
 
     pos = {"X":(1,0.1), "Y":(2,0.2), "Z":(2.8,0), 
             "P":(1,2),
@@ -165,14 +107,13 @@ def main():
     test_causal_model = causal_model_1()
 
     # load the trained model
-    model_path = "/home/mpislar/align-transformers/my_experiments/no_padding"
+    model_path = "/home/mpislar/align-transformers/my_experiments/trained_gpt2forseq"
     tokenizer = load_tokenizer('gpt2')
     model_config = GPT2Config.from_pretrained(model_path)
     model_config.pad_token_id = tokenizer.pad_token_id
     model = GPT2ForSequenceClassification.from_pretrained(model_path, config=model_config)
 
-    # model.resize_token_embeddings(len(tokenizer))
-    # model.config.pad_token_id = model.config.eos_token_id
+    model.resize_token_embeddings(len(tokenizer))
 
     # define intervention model
     intervenable_config = IntervenableConfig(
@@ -379,11 +320,11 @@ def main():
 
                 
                     subspaces=[
-                        [[_ for _ in range(0, embedding_dim * 0.5)]] * batch_size # taking half of the repr. and rotating it
+                        [[_ for _ in range(0, embedding_dim)]] * batch_size # taking half of the repr. and rotating it
                     ], # if you want to target the whole token repr => you don't even need to define it
                 )
             
-            eval_labels += [batch["labels"].squeeze() - min_class_value]
+            eval_labels += [batch["labels"].type(torch.long).squeeze() - min_class_value]
             eval_preds += [torch.argmax(counterfactual_outputs[0], dim=1)]
     print(classification_report(torch.cat(eval_labels).cpu(), torch.cat(eval_preds).cpu()))
 
