@@ -3,10 +3,11 @@ sys.path.append(os.path.join('..', '..'))
 
 from sklearn.metrics import classification_report
 from pyvene import CausalModel
-from tqdm import tqdm, trange
+from tqdm import tqdm
 import torch
 from torch.utils.data import DataLoader
 import random
+import json
 
 from transformers import (GPT2Tokenizer,
                           GPT2Config,
@@ -75,11 +76,15 @@ def tokenizePrompt(prompt):
     prompt = f"{prompt['X']}+{prompt['Y']}+{prompt['Z']}="
     return tokenizer.encode(prompt, padding=True, return_tensors='pt')
 
+def save_results(layer, report):
+    with open(f'report_{layer}.json', 'w') as json_file:
+        json.dump(report, json_file)
+
 def main():
 
     # fixed parameters
     min_class_value = 3 # summing 3 numbers from 1 to 10 results in values from 3 -..--> 30 => 28 labels in total => subtract 3 to get the predicted label
-    n_examples = 2560
+    n_examples = 128
     batch_size = 32
     pretrained_model_path = "/home/mpislar/align-transformers/my_experiments/trained_gpt2forseq"
 
@@ -93,11 +98,12 @@ def main():
     model.resize_token_embeddings(len(tokenizer))
 
     # define intervention model
+    layer = 0
     intervenable_config = IntervenableConfig(
         model_type=type(model),
         representations=[
             RepresentationConfig(
-                0,  # layer
+                layer,  # layer
                 "block_output",  # intervention type
                 # "pos",  # intervention unit is now aligne with tokens; default though
                 # 1,  # max number of tokens to intervene on
@@ -151,7 +157,9 @@ def main():
             
             eval_labels += [batch["labels"].type(torch.long).squeeze() - min_class_value]
             eval_preds += [torch.argmax(counterfactual_outputs[0], dim=1)]
-    print(classification_report(torch.cat(eval_labels).cpu(), torch.cat(eval_preds).cpu())) # get the IIA
+    report = classification_report(torch.cat(eval_labels).cpu(), torch.cat(eval_preds).cpu()) # get the IIA
+    print(report)
+    save_results(layer, report)
 
 if __name__ =="__main__":
     main()
