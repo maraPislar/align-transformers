@@ -2,12 +2,16 @@ import sys, os
 sys.path.append(os.path.join('..', '..'))
 
 import torch
+import torch.nn.functional as F
 import random
+from torch.utils.data import random_split
 from sklearn.metrics import classification_report
 from pyvene import CausalModel
 from datetime import datetime
 from datasets import Dataset
+from torch.utils.data import DataLoader
 from tqdm.notebook import tqdm
+import numpy as np
 from ml_things import plot_dict
 from sklearn.metrics import classification_report, accuracy_score
 from transformers import (set_seed,
@@ -17,11 +21,7 @@ from transformers import (set_seed,
                           get_linear_schedule_with_warmup,
                           GPT2ForSequenceClassification)
 
-# def randNum(lower=1, upper=10):
-#     number = random.randint(lower, upper)
-#     return number
-
-def randNum(lower=1, upper=9):
+def randNum(lower=1, upper=10):
     number = random.randint(lower, upper)
     return number
 
@@ -55,9 +55,9 @@ def get_causal_model():
 def load_tokenizer(tokenizer_path):
     tokenizer = GPT2Tokenizer.from_pretrained(pretrained_model_name_or_path=tokenizer_path)
     # default to left padding
-    # tokenizer.padding_side = "left"
+    tokenizer.padding_side = "left"
     # Define PAD Token = EOS Token = 50256
-    # tokenizer.pad_token = tokenizer.eos_token
+    tokenizer.pad_token = tokenizer.eos_token
 
     return tokenizer
 
@@ -83,9 +83,14 @@ def train(model, dataloader, optimizer, scheduler, device):
 
     for batch in tqdm(dataloader, total=len(dataloader)):
 
-        true_labels += batch['labels'] # used later for eval
-        batch = {k:torch.tensor(v).type(torch.long).to(device) for k,v in batch.items()} # move to device
+        true_labels += batch['labels'][0].type(torch.long).tolist() # used later for eval
 
+        # get the values to device
+        batch['input_ids'] = torch.stack(batch['input_ids'][0]).T.to(device) # results in a (batch_size)
+        batch['labels'] = batch['labels'][0].type(torch.long).to(device)
+
+        # batch = {k:torch.tensor(v).type(torch.long).to(device) for k,v in batch.items()} # move to device
+        
         model.zero_grad()
         outputs = model(**batch)
         loss, logits = outputs[:2] # probs has to be n_labels?
@@ -120,8 +125,12 @@ def validation(dataloader, model, device_):
 
     for batch in tqdm(dataloader, total=len(dataloader)):
 
-        true_labels += batch['labels'] # for eval
-        batch = {k:torch.tensor(v).type(torch.long).to(device_) for k,v in batch.items()} # move to device
+        true_labels += batch['labels'][0].type(torch.long).tolist() # for eval
+
+        batch['input_ids'] = torch.stack(batch['input_ids'][0]).T.to(device_)
+        batch['labels'] = batch['labels'][0].type(torch.long).to(device_)
+
+        # batch = {k:torch.tensor(v).type(torch.long).to(device_) for k,v in batch.items()} # move to device
 
         with torch.no_grad():        
 
@@ -142,23 +151,21 @@ def validation(dataloader, model, device_):
 def main():
 
     # set general parameters
-    # set_seed(123)
-    epochs = 3
+    set_seed(123)
+    epochs = 30
     batch_size = 32
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model_name_or_path = 'gpt2'
-    # n_labels = 28
     min_class_value = 3
-    n_training = 128 # 128000
-    n_validation = 100 # 1000
-    n_testing = 100 # 1000
+    n_training = 2560
+    n_validation = round(0.2 * n_training)
+    n_testing = round(0.1 * n_training)
 
     # Sequence Classification with GPT2 n_labels=28
-    # n_labels = 28 # 3 -..-> 31 
-    n_labels = 25 # 3 - ..-> 27
+    n_labels = 28 # 3 -..-> 31 => 10 included
+    # n_labels = 25 # 3 - ..-> 27 => 9 included
     model_config = GPT2Config.from_pretrained(pretrained_model_name_or_path=model_name_or_path, num_labels=n_labels)
     model = GPT2ForSequenceClassification.from_pretrained(pretrained_model_name_or_path=model_name_or_path, config=model_config)
-    # model = GPT2LMForSequenceClassification.from_pretrained(model_name_or_path, config=model_config, cache_dir=None)
     tokenizer = load_tokenizer(model_name_or_path)
 
     # generate training and validation data
@@ -170,29 +177,25 @@ def main():
     train_ds = Dataset.from_dict(
         {
             "labels": train_labels - min_class_value,
-            "input_ids": train_inputs,
+            "input_ids": train_inputs
         }
     )
 
     val_ds = Dataset.from_dict(
         {
             "labels": val_labels - min_class_value,
-            "input_ids": val_inputs,
+            "input_ids": val_inputs
         }
     )
 
-    test_ds = Dataset.from_dict(
-        {
-            "labels": test_labels - min_class_value,
-            "input_ids": test_inputs
-        }
-    )
+    train_dataloader = DataLoader(train_ds, batch_size=batch_size, shuffle=True) 
+    val_dataloader = DataLoader(val_ds, batch_size=batch_size, shuffle=False)
 
     # resize model embedding to match new tokenizer
-    # model.resize_token_embeddings(len(tokenizer))
+    model.resize_token_embeddings(len(tokenizer))
 
     # fix model padding token id
-    # model.config.pad_token_id = model.config.eos_token_id
+    model.config.pad_token_id = model.config.eos_token_id
 
     # Load model to defined device.
     model.to(device)
@@ -206,7 +209,7 @@ def main():
     # Total number of training steps is number of batches * number of epochs.
     # `train_dataloader` contains batched data so `len(train_dataloader)` gives 
     # us the number of batches.
-    total_steps = batch_size * epochs
+    total_steps = len(train_dataloader) * epochs
 
     # Create the learning rate scheduler.
     scheduler = get_linear_schedule_with_warmup(optimizer,
@@ -219,16 +222,17 @@ def main():
 
     print('Epoch')
     for epoch in tqdm(range(epochs)):
+
         print()
         print('Training on batches...')
 
         # pass over a batch
-        train_labels, train_predict, train_loss = train(model, train_ds, optimizer, scheduler, device)
+        train_labels, train_predict, train_loss = train(model, train_dataloader, optimizer, scheduler, device)
         train_acc = accuracy_score(train_labels, train_predict)
 
         # validation step
         print('Validation on batches...')
-        valid_labels, valid_predict, val_loss = validation(val_ds, model, device)
+        valid_labels, valid_predict, val_loss = validation(val_dataloader, model, device)
         val_acc = accuracy_score(valid_labels, valid_predict)
 
         # Print loss and accuracy values to see how training evolves.
@@ -241,24 +245,29 @@ def main():
         all_acc['train_acc'].append(train_acc)
         all_acc['val_acc'].append(val_acc)
 
-    # testing phase
-    true_labels, predictions_labels, avg_epoch_loss = validation(test_ds, model, device)
-    print(f"Average epoch loss on test_ds: {avg_epoch_loss}")
-    evaluation_report = classification_report(true_labels, predictions_labels, labels=list(val_labels.squeeze()))
-    print(evaluation_report)
-
-    # plot loss and accuracy trends
+    # plot loss and accuracy trends during training
     current_time = datetime.now()
     plot_dict(all_loss, use_xlabel='Epochs', use_ylabel='Value', use_linestyles=['-', '--'], path=f'losses_{current_time.strftime("%Y%m%d_%H%M%S")[:-3]}.png')
     plot_dict(all_acc, use_xlabel='Epochs', use_ylabel='Value', use_linestyles=['-', '--'], path=f'accuracies_{current_time.strftime("%Y%m%d_%H%M%S")[:-3]}.png')
 
-    model_config.save_pretrained("/home/mpislar/align-transformers/my_experiments/no_padding")
-    model.save_pretrained("/home/mpislar/align-transformers/my_experiments/no_padding")
+    # testing phase
+    test_ds = Dataset.from_dict(
+        {
+            "labels": test_labels - min_class_value,
+            "input_ids": test_inputs
+        }
+    )
+
+    test_dataloader = DataLoader(test_ds, batch_size=batch_size, shuffle=False)
+
+    true_labels, predictions_labels, avg_epoch_loss = validation(test_dataloader, model, device)
+    print(f"Average epoch loss on test_ds: {avg_epoch_loss}")
+    evaluation_report = classification_report(true_labels, predictions_labels, labels=list(val_labels.squeeze()))
+    print(evaluation_report)
+
+    # save model
+    model_config.save_pretrained("/home/mpislar/align-transformers/my_experiments/trained_gpt2forseq")
+    model.save_pretrained("/home/mpislar/align-transformers/my_experiments/trained_gpt2forseq")
    
 if __name__ =="__main__":
     main()
-
-
-### Check with single character inputs --> (1..9) 
-    # change in the causal model the way data is generated
-    # 0 padding?
