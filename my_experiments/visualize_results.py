@@ -19,7 +19,7 @@ def visualize_causal_models():
             report_dicts = []
 
             for layer in range(n_layers):
-                file_path = f'/home/mpislar/align-transformers/my_results/rotation_intervention/results_{id}/report_layer_{layer}_tkn_{token}.json'
+                file_path = f'/home/mpislar/align-transformers/my_experiments/results_{id}/report_layer_{layer}_tkn_{token}.json'
                 with open(file_path, 'r') as json_file:
                     report_dict = json.load(json_file)
                     report_dicts.append(report_dict)
