@@ -152,7 +152,7 @@ def main():
 
     # set general parameters
     set_seed(123)
-    epochs = 30
+    epochs = 50
     batch_size = 32
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model_name_or_path = 'gpt2'

@@ -14,7 +14,7 @@ from transformers import (GPT2Tokenizer,
 
 from pyvene import (
     IntervenableModel,
-    RotatedSpaceIntervention,
+    # RotatedSpaceIntervention,
     RepresentationConfig,
     IntervenableConfig,
     VanillaIntervention
@@ -103,7 +103,7 @@ def main():
 
     min_class_value = 3
 
-    causal_model = causal_model_1()
+    # causal_model = causal_model_1()
     test_causal_model = causal_model_1()
 
     # load the trained model
@@ -145,25 +145,25 @@ def main():
             #     intervention_link_key=0,
             # )
         ],
-        intervention_types=RotatedSpaceIntervention,
-        # intervention_types=VanillaIntervention,
+        # intervention_types=RotatedSpaceIntervention,
+        intervention_types=VanillaIntervention,
     )
 
     intervenable = IntervenableModel(intervenable_config, model, use_fast=True)
     intervenable.set_device("cuda")
-    intervenable.disable_model_gradients()
+    # intervenable.disable_model_gradients()
 
-    epochs = 10
-    gradient_accumulation_steps = 1
-    total_step = 0
+    # epochs = 10
+    # gradient_accumulation_steps = 1
+    # total_step = 0
 
     ###### For Rotation Intervention ######
 
     # t_total = int(len(dataset) * epochs)
-    optimizer_params = []
-    for k, v in intervenable.interventions.items():
-        optimizer_params += [{"params": v[0].rotate_layer.parameters()}]
-        break
+    # optimizer_params = []
+    # for k, v in intervenable.interventions.items():
+    #     optimizer_params += [{"params": v[0].rotate_layer.parameters()}]
+    #     break
     # model.enable_model_gradients()
     # print("number of params:", model.count_parameters())
 
@@ -174,100 +174,104 @@ def main():
     #     optimizer_params += [{"params": v[0].parameters()}]
     #     break
 
-    optimizer = torch.optim.Adam(optimizer_params, lr=0.001)
+    for parameter in intervenable.get_trainable_parameters():
+        parameter.to("cuda:0")
+
+    # optimizer = torch.optim.Adam(intervenable.get_trainable_parameters(), lr=0.001)
 
     #######################################
 
     print('generating data for DAS...')
 
-    n_examples = 128
+    # n_examples = 128
     batch_size = 32
 
-    train_dataset = causal_model.generate_counterfactual_dataset(
-        n_examples,
-        intervention_id,
-        batch_size,
-        sampler=input_sampler,
-        inputFunction=tokenizePrompt
-    )
+    # train_dataset = causal_model.generate_counterfactual_dataset(
+    #     n_examples,
+    #     intervention_id,
+    #     batch_size,
+    #     sampler=input_sampler,
+    #     inputFunction=tokenizePrompt
+    # )
 
     # train DAS
-    print('training DAS...')
+    # print('training DAS...')
 
-    embedding_dim = 768
+    # embedding_dim = 768
 
-    intervenable.model.train()  # train enables drop-off but no grads
-    print("intervention trainable parameters: ", intervenable.count_parameters())
-    train_iterator = trange(0, int(epochs), desc="Epoch")
+    # # intervenable.model.train()  # train enables drop-off but no grads
+    # print("intervention trainable parameters: ", intervenable.count_parameters())
+    # train_iterator = trange(0, int(epochs), desc="Epoch")
 
-    for epoch in train_iterator:
-        epoch_iterator = tqdm(
-            DataLoader(
-                train_dataset,
-                batch_size=batch_size,
-                sampler=batched_random_sampler(train_dataset, batch_size),
-            ),
-            desc=f"Epoch: {epoch}",
-            position=0,
-            leave=True,
-        )
-        for batch in epoch_iterator:
-            batch["input_ids"] = batch["input_ids"].squeeze()
-            batch["source_input_ids"] = batch["source_input_ids"].squeeze(2)
-            batch_size = batch["input_ids"].shape[0]
-            for k, v in batch.items():
-                if v is not None and isinstance(v, torch.Tensor):
-                    batch[k] = v.to("cuda")
+    # for epoch in train_iterator:
+    #     epoch_iterator = tqdm(
+    #         DataLoader(
+    #             train_dataset,
+    #             batch_size=batch_size,
+    #             sampler=batched_random_sampler(train_dataset, batch_size),
+    #         ),
+    #         desc=f"Epoch: {epoch}",
+    #         position=0,
+    #         leave=True,
+    #     )
+    #     for batch in epoch_iterator:
+    #         batch["input_ids"] = batch["input_ids"].squeeze()
+    #         batch["source_input_ids"] = batch["source_input_ids"].squeeze(2)
+    #         batch_size = batch["input_ids"].shape[0]
+    #         for k, v in batch.items():
+    #             if v is not None and isinstance(v, torch.Tensor):
+    #                 batch[k] = v.to("cuda")
 
-            if batch["intervention_id"][0] == 0:
-                _, counterfactual_outputs = intervenable(
-                    {"input_ids": batch["input_ids"]}, # base
-                    [{"input_ids": batch["source_input_ids"][:, 0]}], # source, selecting all rows and only the values from the first column
-                    {
-                        "sources->base": (
-                            [[[0]] * batch_size], # each inner list is a reference to the same list object
-                            [[[0]] * batch_size], # 0 (source) --> 1 (base); 3 (source) --> 4 (base)
-                        )
-                        # experiment
-                        # "sources->base": (
-                        #     [[[0, 1, 2]] * batch_size], # each inner list is a reference to the same list object
-                        #     [[[0, 1, 2]] * batch_size], # 0 (source) --> 1 (base); 3 (source) --> 4 (base)
-                        # )
-                    }, # unit locations
+    #         if batch["intervention_id"][0] == 0:
+    #             _, counterfactual_outputs = intervenable(
+    #                 {"input_ids": batch["input_ids"]}, # base
+    #                 [{"input_ids": batch["source_input_ids"][:, 0]}], # source, selecting all rows and only the values from the first column
+    #                 unit_locations={"sources->base": 0}
+    #                 # {
+    #                 #     "sources->base": (
+    #                 #         [[[0,1,2,3,4,5]] * batch_size], # each inner list is a reference to the same list object
+    #                 #         [[[0,1,2,3,4,5]] * batch_size], # 0 (source) --> 1 (base); 3 (source) --> 4 (base)
+    #                 #     )
+    #                 #     # experiment
+    #                 #     # "sources->base": (
+    #                 #     #     [[[0, 1, 2]] * batch_size], # each inner list is a reference to the same list object
+    #                 #     #     [[[0, 1, 2]] * batch_size], # 0 (source) --> 1 (base); 3 (source) --> 4 (base)
+    #                 #     # )
+    #                 # }, # unit locations
                 
-                    subspaces=[
-                        [[_ for _ in range(0, embedding_dim)]] * batch_size # taking half of the repr. and rotating it
-                    ], # if you want to target the whole token repr => you don't even need to define it
-                )
+    #                 # subspaces=[
+    #                 #     [[_ for _ in range(0, embedding_dim)]] * batch_size # taking half of the repr. and rotating it
+    #                 # ], # if you want to target the whole token repr => you don't even need to define it
+    #             )
 
-            # print(counterfactual_outputs[0].argmax(1))
-            # print(batch["labels"].squeeze() - min_class_value)
+    #         # print(counterfactual_outputs[0].argmax(1))
+    #         # print(batch["labels"].squeeze() - min_class_value)
 
-            eval_metrics = compute_metrics(
-                counterfactual_outputs[0].argmax(1), batch["labels"].squeeze() - min_class_value
-            )
+    #         eval_metrics = compute_metrics(
+    #             counterfactual_outputs[0].argmax(1), batch["labels"].squeeze() - min_class_value
+    #         )
 
-            # print(counterfactual_outputs[0])
-            # print(counterfactual_outputs[0].shape)
-            # print(batch["labels"])
+    #         # print(counterfactual_outputs[0])
+    #         # print(counterfactual_outputs[0].shape)
+    #         # print(batch["labels"])
 
-            # loss and backprop
-            loss = compute_loss(
-                counterfactual_outputs[0], batch["labels"].squeeze() - min_class_value
-            )
+    #         # loss and backprop
+    #         loss = compute_loss(
+    #             counterfactual_outputs[0], batch["labels"].squeeze() - min_class_value
+    #         )
 
-            print(loss)
-            print(eval_metrics)
+    #         print(loss)
+    #         print(eval_metrics)
 
-            epoch_iterator.set_postfix({"loss": loss, "acc": eval_metrics["accuracy"]})
+    #         epoch_iterator.set_postfix({"loss": loss, "acc": eval_metrics["accuracy"]})
 
-            if gradient_accumulation_steps > 1:
-                loss = loss / gradient_accumulation_steps
-            loss.backward()
-            if total_step % gradient_accumulation_steps == 0:
-                optimizer.step()
-                intervenable.set_zero_grad()
-            total_step += 1
+    #         # if gradient_accumulation_steps > 1:
+    #         #     loss = loss / gradient_accumulation_steps
+    #         # loss.backward()
+    #         # if total_step % gradient_accumulation_steps == 0:
+    #         #     optimizer.step()
+    #         #     intervenable.set_zero_grad()
+    #         # total_step += 1
     
     # test DAS
 
@@ -306,22 +310,23 @@ def main():
                 _, counterfactual_outputs = intervenable(
                     {"input_ids": batch["input_ids"]}, # base
                     [{"input_ids": batch["source_input_ids"][:, 0]}], # source, selecting all rows and only the values from the first column
-                    {
-                        "sources->base": (
-                            [[[0]] * batch_size], # each inner list is a reference to the same list object
-                            [[[0]] * batch_size], # 0 (source) --> 1 (base); 3 (source) --> 4 (base)
-                        )
-                        # experiment
-                        # "sources->base": (
-                        #     [[[0, 1, 2]] * batch_size], # each inner list is a reference to the same list object
-                        #     [[[0, 1, 2]] * batch_size], # 0 (source) --> 1 (base); 3 (source) --> 4 (base)
-                        # )
-                    }, # unit locations
+                    unit_locations={"sources->base": 0}
+                    # {
+                    #     "sources->base": (
+                    #         [[[0,1,2,3,4,5]] * batch_size], # each inner list is a reference to the same list object
+                    #         [[[0,1,2,3,4,5]] * batch_size], # 0 (source) --> 1 (base); 3 (source) --> 4 (base)
+                    #     )
+                    #     # experiment
+                    #     # "sources->base": (
+                    #     #     [[[0, 1, 2]] * batch_size], # each inner list is a reference to the same list object
+                    #     #     [[[0, 1, 2]] * batch_size], # 0 (source) --> 1 (base); 3 (source) --> 4 (base)
+                    #     # )
+                    # }, # unit locations
 
                 
-                    subspaces=[
-                        [[_ for _ in range(0, embedding_dim)]] * batch_size # taking half of the repr. and rotating it
-                    ], # if you want to target the whole token repr => you don't even need to define it
+                    # subspaces=[
+                    #     [[_ for _ in range(0, embedding_dim)]] * batch_size # taking half of the repr. and rotating it
+                    # ], # if you want to target the whole token repr => you don't even need to define it
                 )
             
             eval_labels += [batch["labels"].type(torch.long).squeeze() - min_class_value]
