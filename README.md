@@ -1,7 +1,7 @@
 <br />
 <div align="center">
   <h1 align="center"><img src="https://i.ibb.co/BNkhQH3/pyvene-logo.png"></h1>
-  <a href="https://nlp.stanford.edu/~wuzhengx/"><strong>Library Paper and Doc Are Forthcoming »</strong></a>
+  <a href="https://arxiv.org/abs/2403.07809"><strong>Read Our Paper »</strong></a>
 </div>     
 
 <br />
@@ -17,36 +17,62 @@ Interventions on model-internal states are fundamental operations in many areas 
 **Getting Started:** [<img align="center" src="https://colab.research.google.com/assets/colab-badge.svg" />](https://colab.research.google.com/github/stanfordnlp/pyvene/blob/main/pyvene_101.ipynb) [**Main _pyvene_ 101**]  
 
 ## Installation
+Since we are currently beta-testing, it is recommended to install pyvene by,
+```bash
+git clone git@github.com:stanfordnlp/pyvene.git
+```
+and add pyvene into your system path in python via,
+```py
+import sys
+sys.path.append("<Your Path to Pyvene>")
+
+import pyvene as pv
+```
+Alternatively, you can do
+```bash
+pip install git+https://github.com/stanfordnlp/pyvene.git
+```
+or 
 ```bash
 pip install pyvene
 ```
 
 ## _Wrap_ , _Intervene_ and _Share_
-You can intervene with supported models as,
+You can intervene with any HuggingFace model as,
 ```python
 import torch
 import pyvene as pv
+from transformers import AutoTokenizer, AutoModelForCausalLM
 
-_, tokenizer, gpt2 = pv.create_gpt2()
+model_name = "meta-llama/Llama-2-7b-hf" # your HF model name.
+model = AutoModelForCausalLM.from_pretrained(
+    model_name, torch_dtype=torch.bfloat16, device_map="cuda")
+tokenizer = AutoTokenizer.from_pretrained(model_name)
 
-pv_gpt2 = pv.IntervenableModel({
-    "layer": 0, "component": "block_output",
-    "source_representation": torch.zeros(gpt2.config.n_embd)
-}, model=gpt2)
+def zeroout_intervention_fn(b, s): 
+    b[:,3] = 0. # 3rd position
+    return b
 
-orig_outputs, intervened_outputs = pv_gpt2(
-    base = tokenizer("The capital of Spain is", return_tensors="pt"), 
-    unit_locations={"base": 3}
+pv_model = pv.IntervenableModel({
+    "component": "model.layers[15].mlp.output", # string access
+    "intervention": zeroout_intervention_fn}, model=model)
+
+# run the intervened forward pass
+orig_outputs, intervened_outputs = pv_model(
+    tokenizer("The capital of Spain is", return_tensors="pt").to('cuda'),
+    output_original_output=True
 )
-print(intervened_outputs.last_hidden_state - orig_outputs.last_hidden_state)
+print(intervened_outputs.logits - orig_outputs.logits)
 ```
 which returns,
 ```
 tensor([[[ 0.0000,  0.0000,  0.0000,  ...,  0.0000,  0.0000,  0.0000],
          [ 0.0000,  0.0000,  0.0000,  ...,  0.0000,  0.0000,  0.0000],
          [ 0.0000,  0.0000,  0.0000,  ...,  0.0000,  0.0000,  0.0000],
-         [ 0.0483, -0.1212, -0.2816,  ...,  0.1958,  0.0830,  0.0784],
-         [ 0.0519,  0.2547, -0.1631,  ...,  0.0050, -0.0453, -0.1624]]])
+         [ 0.4375,  1.0625,  0.3750,  ..., -0.1562,  0.4844,  0.2969],
+         [ 0.0938,  0.1250,  0.1875,  ...,  0.2031,  0.0625,  0.2188],
+         [ 0.0000, -0.0625, -0.0312,  ...,  0.0000,  0.0000, -0.0156]]],
+       device='cuda:0')
 ```
 
 ## _IntervenableModel_ Loaded from HuggingFace Directly
@@ -167,23 +193,6 @@ Please see [our guidelines](CONTRIBUTING.md) about how to contribute to this rep
 
 *Pull requests, bug reports, and all other forms of contribution are welcomed and highly encouraged!* :octocat:  
 
-### Other Ways of Installation
-
-**Method 2: Install from the Repo**
-```bash
-pip install git+https://github.com/stanfordnlp/pyvene.git
-```
-
-**Method 3: Clone and Import**
-```bash
-git clone https://github.com/stanfordnlp/pyvene.git
-```
-and in parallel folder, import to your project as,
-```python
-from pyvene import pyvene
-_, tokenizer, gpt2 = pyvene.create_gpt2()
-```
-
 ## A Little Guide for Causal Abstraction: From Interventions to Gain Interpretability Insights
 Basic interventions are fun but we cannot make any causal claim systematically. To gain actual interpretability insights, we want to measure the counterfactual behaviors of a model in a data-driven fashion. In other words, if the model responds systematically to your interventions, then you start to associate certain regions in the network with a high-level concept. We also call this alignment search process with model internals.
 
@@ -202,7 +211,7 @@ The function solves a 3-digit sum problem. Let's say, we trained a neural networ
 
 To translate the above steps into API calls with the library, it will be a single call,
 ```py
-intervenable.evaluate(
+intervenable.eval_alignment(
     train_dataloader=test_dataloader,
     compute_metrics=compute_metrics,
     inputs_collator=inputs_collator
@@ -233,7 +242,7 @@ Instead of activation swapping in the original representation space, we first **
 
 You can now also make a single API call to train your intervention,
 ```py
-intervenable.train(
+intervenable.train_alignment(
     train_dataloader=train_dataloader,
     compute_loss=compute_loss,
     compute_metrics=compute_metrics,
@@ -241,6 +250,18 @@ intervenable.train(
 )
 ```
 where you need to pass in a trainable dataset, and your customized loss and metrics function. The trainable interventions can later be saved on to your disk. You can also use `intervenable.evaluate()` your interventions in terms of customized objectives.
+
+## Citation
+If you use this repository, please consider to cite our library paper:
+```stex
+@article{wu2024pyvene,
+  title={pyvene: A Library for Understanding and Improving {P}y{T}orch Models via Interventions},
+  author={Wu, Zhengxuan and Geiger, Atticus and Arora, Aryaman and Huang, Jing and Wang, Zheng and Noah D. Goodman and Christopher D. Manning and Christopher Potts},
+  booktitle={arXiv:2403.07809},
+  url={arxiv.org/abs/2403.07809},
+  year={2024}
+}
+```
 
 ## Related Works in Discovering Causal Mechanism of LLMs
 If you would like to read more works on this area, here is a list of papers that try to align or discover the causal mechanisms of LLMs. 
@@ -254,21 +275,3 @@ If you would like to read more works on this area, here is a list of papers that
 ## Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=stanfordnlp/pyvene&type=Date)](https://star-history.com/#stanfordnlp/pyvene&Date)
-
-## Citation
-Library paper is forthcoming. For now, if you use this repository, please consider to cite relevant papers:
-```stex
-  @article{geiger-etal-2023-DAS,
-        title={Finding Alignments Between Interpretable Causal Variables and Distributed Neural Representations}, 
-        author={Geiger, Atticus and Wu, Zhengxuan and Potts, Christopher and Icard, Thomas  and Goodman, Noah},
-        year={2023},
-        booktitle={arXiv}
-  }
-
-  @article{wu-etal-2023-Boundless-DAS,
-        title={Interpretability at Scale: Identifying Causal Mechanisms in Alpaca}, 
-        author={Wu, Zhengxuan and Geiger, Atticus and Icard, Thomas and Potts, Christopher and Goodman, Noah},
-        year={2023},
-        booktitle={NeurIPS}
-  }
-```

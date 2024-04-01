@@ -1,4 +1,4 @@
-import random, torch
+import random, torch, types
 import numpy as np
 from torch import nn
 from .intervenable_modelcard import *
@@ -102,7 +102,9 @@ def get_dimension_by_component(model_type, model_config, component) -> int:
 
     dimension_proposals = type_to_dimension_mapping[model_type][component]
     for proposal in dimension_proposals:
-        if "*" in proposal:
+        if proposal.isnumeric():
+            dimension = int(proposal)
+        elif "*" in proposal:
             # often constant multiplier with MLP
             dimension = getattr_for_torch_module(
                 model_config, proposal.split("*")[0]
@@ -130,6 +132,7 @@ def get_dimension_by_component(model_type, model_config, component) -> int:
 def get_module_hook(model, representation) -> nn.Module:
     """Render the intervening module with a hook."""
     if (
+        get_internal_model_type(model) in type_to_module_mapping and
         representation.component
         in type_to_module_mapping[get_internal_model_type(model)]
     ):
@@ -224,7 +227,8 @@ def output_to_subcomponent(output, component, model_type, model_config):
     :param model_config: Hugging Face Model Config
     """
     subcomponent = output
-    if component in type_to_module_mapping[model_type]:
+    if model_type in type_to_module_mapping and \
+        component in type_to_module_mapping[model_type]:
         split_last_dim_by = type_to_module_mapping[model_type][component][2:]
         if len(split_last_dim_by) != 0 and len(split_last_dim_by) > 2:
             raise ValueError(f"Unsupported {split_last_dim_by}.")
@@ -419,14 +423,20 @@ def do_intervention(
 ):
     """Do the actual intervention."""
 
+    if isinstance(intervention, types.FunctionType):
+        if subspaces is None:
+            return intervention(base_representation, source_representation)
+        else:
+            return intervention(base_representation, source_representation, subspaces)
+
     num_unit = base_representation.shape[1]
 
     # flatten
     original_base_shape = base_representation.shape
     if len(original_base_shape) == 2 or (
         isinstance(intervention, LocalistRepresentationIntervention)
-    ):
-        # no pos dimension, e.g., gru
+    ) or intervention.keep_last_dim:
+        # no pos dimension, e.g., gru, or opt-out concate last two dims
         base_representation_f = base_representation
         source_representation_f = source_representation
     elif len(original_base_shape) == 3:
@@ -439,7 +449,7 @@ def do_intervention(
         source_representation_f = bhsd_to_bs_hd(source_representation)
     else:
         assert False  # what's going on?
-
+    
     intervened_representation = intervention(
         base_representation_f, source_representation_f, subspaces
     )
@@ -449,8 +459,8 @@ def do_intervention(
     # unflatten
     if len(original_base_shape) == 2 or isinstance(
         intervention, LocalistRepresentationIntervention
-    ):
-        # no pos dimension, e.g., gru
+    ) or intervention.keep_last_dim:
+        # no pos dimension, e.g., gru or opt-out concate last two dims
         pass
     elif len(original_base_shape) == 3:
         intervened_representation = b_sd_to_bsd(intervened_representation, num_unit)

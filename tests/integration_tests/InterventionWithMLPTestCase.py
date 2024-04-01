@@ -112,7 +112,8 @@ class InterventionWithMLPTestCase(unittest.TestCase):
         )
         base = {"inputs_embeds": torch.rand(10, 1, 3)}
         self.assertTrue(
-            torch.allclose(ONE_MLP_CLEAN_RUN(base, self.mlp), intervenable(base)[0][0])
+            torch.allclose(ONE_MLP_CLEAN_RUN(base, self.mlp), intervenable(
+                base, output_original_output=True)[0][0])
         )
 
     def test_with_subspace_positive(self):
@@ -161,12 +162,12 @@ class InterventionWithMLPTestCase(unittest.TestCase):
                 base,
                 [source_1],
                 {"sources->base": ([[[0]] * b_s], [[[0]] * b_s])},
-                subspaces=[[[0]] * b_s],
+                subspaces=0,
             )
-        except ValueError:
+        except IndexError:
             pass
         else:
-            raise AssertionError("ValueError was not raised")
+            raise AssertionError("IndexError was not raised")
 
     def test_intervention_link_positive(self):
         """
@@ -255,6 +256,7 @@ class InterventionWithMLPTestCase(unittest.TestCase):
             [source_1, source_2],
             {"sources->base": ([[[0]] * b_s, [[0]] * b_s], [[[0]] * b_s, [[0]] * b_s])},
             subspaces=[[[0]] * b_s, [[1]] * b_s],
+            output_original_output=True,
         )
 
         self.assertTrue(torch.allclose(golden_out_inplace, our_out_inplace[0]))
