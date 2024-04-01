@@ -52,7 +52,7 @@ def eval_llama(llama, tokenizer, prompts, labels):
 
             input_ids = tokenizer.encode(prompt, return_tensors="pt").to("cuda")
             # labels = tokenizer.encode(label, return_tensors="pt").to("cuda")
-            output = llama.generate(input_ids['input_ids'], max_length=1, top_k=10, top_p=0.9)
+            output = llama.generate(input_ids, max_length=1, top_k=10, top_p=0.9)
             # generated_text = tokenizer.decode(output[0], skip_special_tokens=True)
             # generated_text = generated_text[len(prompt):].strip()
 
